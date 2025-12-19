@@ -9,55 +9,119 @@ import io
 import datetime
 
 # --- CONFIGURACIÓN ---
-# Aquí usamos la cuenta de Gmail "robot"
 EMAIL_EMISOR = "swarcosatmadrid@gmail.com"
 PASSWORD_EMISOR = "hrga nnuz hxtd mbck"
-# A este correo le llegarán los avisos (TU CORREO)
 EMAIL_RECEPTOR = "aitor.badiola@swarco.com" 
 
 ASUNTO_CLAVE = "NUEVO TICKET" 
 NOMBRE_ADJUNTO = "temp_ticket_envio.xlsx"
 
+# Configuración de página con icono
 st.set_page_config(page_title="Soporte SWARCO", page_icon="🚦", layout="centered")
 
-# Estilo para ocultar marcas de Streamlit y limpiar la vista
+# --- ESTILOS CSS PRO (AQUÍ ESTÁ LA MAGIA VISUAL) ---
 st.markdown("""
     <style>
+    /* 1. Fondo general de la web (Gris suave profesional) */
+    .stApp {
+        background-color: #F0F2F6;
+    }
+
+    /* 2. Ocultar elementos molestos de Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    .stApp {background-color: #f0f2f6;}
-    .stButton>button {width: 100%; background-color: #009FE3; color: white; border: none; font-weight: bold;}
+    header {visibility: hidden;}
+
+    /* 3. Diseño del FORMULARIO (Efecto Tarjeta) */
+    [data-testid="stForm"] {
+        background-color: #FFFFFF;
+        padding: 2rem;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1); /* Sombra elegante */
+        border-top: 5px solid #009FE3; /* Línea azul Swarco arriba */
+    }
+
+    /* 4. Estilo del BOTÓN de envío */
+    .stButton>button {
+        width: 100%;
+        background-color: #009FE3; /* Azul SWARCO */
+        color: white;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        height: 50px;
+        font-size: 18px !important;
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        background-color: #007BB5; /* Azul más oscuro al pasar ratón */
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    /* 5. Títulos y Textos */
+    h1 {
+        color: #333333;
+        text-align: center;
+        font-family: 'Helvetica', sans-serif;
+    }
+    p {
+        text-align: center;
+        color: #666;
+    }
+    
+    /* 6. Centrar el Logo */
+    [data-testid="stImage"] {
+        display: flex;
+        justify_content: center;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# Logo (Usamos uno público de internet para no tener líos de archivos)
-st.image("https://www.swarco.com/themes/custom/swarco/logo.svg", width=200)
+# --- CABECERA ---
+# Usamos columnas vacías a los lados para centrar el logo perfectamente
+c1, c2, c3 = st.columns([1, 2, 1])
+with c2:
+    st.image("https://www.swarco.com/themes/custom/swarco/logo.svg", width=250)
 
-st.title("🚦 Apertura de Incidencia")
-st.markdown("Formulario de reporte para clientes.")
+st.title("Portal de Soporte Técnico")
+st.markdown("Por favor, complete el formulario para registrar su incidencia. Nuestro equipo técnico recibirá el aviso de inmediato.")
 
+st.write("") # Espacio en blanco
+
+# --- FORMULARIO ---
 with st.form("form_cliente"):
+    st.subheader("📝 Datos del Solicitante")
+    
     col1, col2 = st.columns(2)
     with col1:
-        cliente = st.text_input("Empresa / Cliente*")
-        contacto = st.text_input("Su Nombre*")
+        cliente = st.text_input("Empresa / Cliente 🏢")
+        contacto = st.text_input("Persona de Contacto 👤")
     with col2:
-        email_contacto = st.text_input("Su Email de contacto*")
-        serie = st.text_input("Nº Serie Equipo (Opcional)")
+        email_contacto = st.text_input("Email de Contacto 📧")
+        serie = st.text_input("Nº Serie Equipo (Opcional) 🔢")
     
-    proyecto = st.text_input("Proyecto / Ubicación")
-    prioridad = st.selectbox("Prioridad", ["Normal", "Alta", "Urgente"])
-    descripcion = st.text_area("Descripción detallada del problema*", height=150)
+    st.markdown("---") # Línea separadora
+    st.subheader("⚠️ Detalle de la Incidencia")
     
-    enviar = st.form_submit_button("🚀 ENVIAR SOLICITUD")
+    col3, col4 = st.columns(2)
+    with col3:
+        proyecto = st.text_input("Proyecto / Ubicación 📍")
+    with col4:
+        prioridad = st.selectbox("Prioridad", ["Normal", "Alta", "Urgente 🚨"])
+    
+    descripcion = st.text_area("Descripción detallada del problema", height=150, placeholder="Describa qué sucede, códigos de error, etc.")
+    
+    st.write("") # Espacio antes del botón
+    enviar = st.form_submit_button("🚀 ENVIAR SOLICITUD DE SOPORTE")
 
+# --- LÓGICA DE ENVÍO (IGUAL QUE ANTES) ---
 if enviar:
     if not cliente or not contacto or not email_contacto or not descripcion:
-        st.error("Por favor, complete los campos obligatorios (*).")
+        st.error("❌ Por favor, complete los campos obligatorios para poder ayudarle.")
     else:
-        with st.spinner("Enviando datos a la central..."):
+        with st.spinner("Conectando con la central de SWARCO..."):
             try:
-                # 1. Crear Excel en Memoria (RAM)
+                # 1. Crear Excel
                 fecha = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
                 datos = {
                     'ID': ['WEB'], 
@@ -78,21 +142,29 @@ if enviar:
                     df.to_excel(writer, index=False)
                 excel_bytes = buffer.getvalue()
 
-                # 2. Configurar Email (SMTP GMAIL)
+                # 2. Configurar Email
                 msg = MIMEMultipart()
                 msg['From'] = EMAIL_EMISOR
                 msg['To'] = EMAIL_RECEPTOR
-                # ASUNTO CLAVE para que tu Monitor lo detecte
                 msg['Subject'] = f"{ASUNTO_CLAVE}: {cliente} (Web)"
 
                 cuerpo = f"""
-                <h3>Nueva Incidencia Reportada vía Web</h3>
-                <ul>
-                    <li><b>Cliente:</b> {cliente}</li>
-                    <li><b>Contacto:</b> {contacto} ({email_contacto})</li>
-                    <li><b>Equipo:</b> {serie}</li>
-                    <li><b>Descripción:</b> {descripcion}</li>
-                </ul>
+                <div style="font-family: Arial, sans-serif; color: #333;">
+                    <h2 style="color: #009FE3;">Nueva Incidencia Web</h2>
+                    <p>Un cliente ha reportado un problema desde el portal web:</p>
+                    <hr>
+                    <ul>
+                        <li><b>Cliente:</b> {cliente}</li>
+                        <li><b>Contacto:</b> {contacto} (<a href="mailto:{email_contacto}">{email_contacto}</a>)</li>
+                        <li><b>Ubicación:</b> {proyecto}</li>
+                        <li><b>Equipo:</b> {serie}</li>
+                        <li><b>Prioridad:</b> {prioridad}</li>
+                    </ul>
+                    <div style="background-color: #f9f9f9; padding: 15px; border-left: 5px solid #009FE3;">
+                        <b>Descripción:</b><br>
+                        {descripcion}
+                    </div>
+                </div>
                 """
                 msg.attach(MIMEText(cuerpo, 'html'))
 
@@ -109,7 +181,7 @@ if enviar:
                 server.sendmail(EMAIL_EMISOR, EMAIL_RECEPTOR, msg.as_string())
                 server.quit()
 
-                st.success("✅ Ticket enviado correctamente. Nuestro equipo técnico ha sido notificado.")
+                st.success("✅ Ticket enviado correctamente. Hemos recibido su solicitud y un técnico le contactará pronto.")
                 st.balloons()
                 
             except Exception as e:
