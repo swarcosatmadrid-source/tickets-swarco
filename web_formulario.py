@@ -28,7 +28,7 @@ st.set_page_config(page_title="Soporte SWARCO", page_icon="🚦", layout="center
 # --- ESTILOS CSS (DISEÑO PERSONALIZADO) ---
 st.markdown("""
     <style>
-    /* 1. FONDO AZUL SWARCO (Degradado para que sea elegante) */
+    /* 1. FONDO AZUL SWARCO (Degradado vertical) */
     .stApp {
         background: linear-gradient(180deg, #009FE3 0%, #005F87 100%);
         background-attachment: fixed;
@@ -37,7 +37,7 @@ st.markdown("""
     /* Ocultar elementos de Streamlit */
     #MainMenu, footer, header {visibility: hidden;}
 
-    /* 2. DISEÑO DEL FORMULARIO (TARJETA BLANCA) */
+    /* 2. DISEÑO DEL FORMULARIO (TARJETA) */
     [data-testid="stForm"] {
         background-color: #FFFFFF;
         padding: 3rem;
@@ -46,22 +46,11 @@ st.markdown("""
         border: 4px solid #FF6600; /* BORDE NARANJA */
     }
 
-    /* 3. TÍTULOS CENTRADOS */
+    /* 3. TÍTULOS Y TEXTOS CENTRADOS */
     h1, h2, h3, p {
         text-align: center !important;
     }
     
-    /* Ajuste específico para los títulos dentro del formulario */
-    .titulo-seccion {
-        text-align: center;
-        color: #333;
-        font-size: 1.3rem;
-        margin-top: 20px;
-        margin-bottom: 20px;
-        border-bottom: 2px solid #eee;
-        padding-bottom: 10px;
-    }
-
     /* 4. BOTÓN CENTRADO */
     .stButton {
         display: flex;
@@ -73,16 +62,16 @@ st.markdown("""
         color: white;
         font-weight: bold;
         border: none;
-        border-radius: 50px; /* Más redondeado */
+        border-radius: 50px;
         height: 55px;
         font-size: 20px !important;
         box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         transition: transform 0.2s;
     }
     .stButton>button:hover {
-        background-color: #004d80; /* Azul oscuro al pasar ratón */
+        background-color: #004d80;
         transform: scale(1.05);
-        color: #FF6600; /* Texto naranja al pasar ratón */
+        color: #FF6600;
     }
     
     /* 5. ESTILO VMS (Simulación de Panel de Carretera) */
@@ -96,34 +85,45 @@ st.markdown("""
         font-weight: bold;
         font-size: 24px;
         display: inline-block;
-        box-shadow: 0 0 10px rgba(255, 204, 0, 0.3); /* Resplandor LED */
+        box-shadow: 0 0 10px rgba(255, 204, 0, 0.3);
         margin-bottom: 10px;
     }
 
-    /* Centrar Logo */
-    [data-testid="stImage"] { display: flex; justify_content: center; }
+    /* 6. CENTRADO DEL LOGO (CSS FORZADO) */
+    [data-testid="stImage"] {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+    }
+    [data-testid="stImage"] img {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
     
-    /* Texto de ayuda de los inputs más legible */
     label { font-weight: bold !important; color: #444 !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- CABECERA ---
-st.image("https://www.swarco.com/themes/custom/swarco/logo.svg", width=300)
+# TRUCO PARA CENTRAR: Usamos 3 columnas y ponemos el logo en la del medio
+c_logo1, c_logo2, c_logo3 = st.columns([1, 2, 1]) 
+with c_logo2:
+    st.image("https://www.swarco.com/themes/custom/swarco/logo.svg", use_column_width=True)
 
-# Título Principal (Texto blanco porque el fondo ahora es azul)
+# Título Principal
 st.markdown("<h1 style='color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>Portal de Soporte Técnico</h1>", unsafe_allow_html=True)
 st.markdown("<p style='color: #E6F4FA; font-size: 18px;'>Complete el formulario para registrar su incidencia.</p>", unsafe_allow_html=True)
 
 # --- FORMULARIO ---
 with st.form("form_cliente"):
     
-    # SECCIÓN 1: SOLICITANTE (CON ICONO VMS)
-    # Creamos un "Panel VMS" con HTML para el icono
+    # SECCIÓN 1: SOLICITANTE
     st.markdown("""
         <div style="text-align: center;">
             <div class="vms-icon">ℹ INFO</div>
-            <h3 style="border:none;">Datos de Contacto</h3>
+            <h3 style="border:none; margin-top:0;">Datos de Contacto</h3>
         </div>
         """, unsafe_allow_html=True)
     
@@ -136,10 +136,11 @@ with st.form("form_cliente"):
         telf_contacto = st.text_input("Teléfono (Opcional)")
 
     # SECCIÓN 2: PANEL
+    st.markdown("---")
     st.markdown("""
-        <div style="text-align: center; margin-top: 20px;">
+        <div style="text-align: center;">
             <div class="vms-icon">📟 VMS</div>
-            <h3 style="border:none;">Datos del Equipo</h3>
+            <h3 style="border:none; margin-top:0;">Datos del Equipo</h3>
         </div>
         """, unsafe_allow_html=True)
 
@@ -152,10 +153,11 @@ with st.form("form_cliente"):
         modelo = st.text_input("Modelo de Panel")
 
     # SECCIÓN 3: DETALLE
+    st.markdown("---")
     st.markdown("""
-        <div style="text-align: center; margin-top: 20px;">
+        <div style="text-align: center;">
             <div class="vms-icon">⚠ FALLO</div>
-            <h3 style="border:none;">Detalle de Incidencia</h3>
+            <h3 style="border:none; margin-top:0;">Detalle de Incidencia</h3>
         </div>
         """, unsafe_allow_html=True)
         
@@ -173,9 +175,9 @@ if enviar:
     if not cliente or not contacto or not email_contacto or not pais or not serie or not descripcion:
         st.error("❌ Faltan datos obligatorios (*)")
     else:
-        with st.spinner("Conectando con central..."):
+        with st.spinner("Enviando datos a la central..."):
             try:
-                # 1. Excel
+                # 1. Crear Excel
                 fecha = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
                 datos_dict = {
                     'ID': ['WEB'], 
@@ -251,5 +253,4 @@ if enviar:
                 
             except Exception as e:
                 st.error(f"Error: {e}")
-
 
