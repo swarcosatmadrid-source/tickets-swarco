@@ -16,7 +16,6 @@ EMAIL_RECEPTOR = "aitor.badiola@swarco.com"
 ASUNTO_CLAVE = "NUEVO TICKET" 
 NOMBRE_ADJUNTO_EXCEL = "temp_ticket_envio.xlsx"
 
-# Lista de países
 LISTA_PAISES = [
     "España", "Portugal", "Argentina", "Bolivia", "Brasil", "Chile", "Colombia", 
     "Costa Rica", "Cuba", "Ecuador", "El Salvador", "Estados Unidos", "Guatemala", 
@@ -26,66 +25,108 @@ LISTA_PAISES = [
 
 st.set_page_config(page_title="Soporte SWARCO", page_icon="🚦", layout="centered")
 
-# --- ESTILOS CSS (DISEÑO PRO) ---
+# --- ESTILOS CSS (DISEÑO PERSONALIZADO) ---
 st.markdown("""
     <style>
-    /* Fondo General */
-    .stApp { background-color: #F8F9FA; }
+    /* 1. FONDO AZUL SWARCO (Degradado para que sea elegante) */
+    .stApp {
+        background: linear-gradient(180deg, #009FE3 0%, #005F87 100%);
+        background-attachment: fixed;
+    }
 
     /* Ocultar elementos de Streamlit */
     #MainMenu, footer, header {visibility: hidden;}
 
-    /* DISEÑO DEL FORMULARIO (BORDE NARANJA) */
+    /* 2. DISEÑO DEL FORMULARIO (TARJETA BLANCA) */
     [data-testid="stForm"] {
         background-color: #FFFFFF;
-        padding: 2rem;
-        border-radius: 15px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        border: 3px solid #FF6600; /* BORDE NARANJA SWARCO */
+        padding: 3rem;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        border: 4px solid #FF6600; /* BORDE NARANJA */
     }
 
-    /* Títulos de secciones */
-    h3 { color: #333; font-size: 1.2rem; border-bottom: 2px solid #eee; padding-bottom: 5px; margin-top: 20px;}
+    /* 3. TÍTULOS CENTRADOS */
+    h1, h2, h3, p {
+        text-align: center !important;
+    }
+    
+    /* Ajuste específico para los títulos dentro del formulario */
+    .titulo-seccion {
+        text-align: center;
+        color: #333;
+        font-size: 1.3rem;
+        margin-top: 20px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+    }
 
-    /* BOTÓN CENTRADO Y ESTILIZADO */
+    /* 4. BOTÓN CENTRADO */
     .stButton {
         display: flex;
         justify-content: center;
     }
     .stButton>button {
-        width: 60%; /* No ocupa todo el ancho, queda centrado */
+        width: 70%;
         background-color: #009FE3;
         color: white;
         font-weight: bold;
         border: none;
-        border-radius: 25px;
-        height: 50px;
-        font-size: 18px !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        border-radius: 50px; /* Más redondeado */
+        height: 55px;
+        font-size: 20px !important;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         transition: transform 0.2s;
     }
     .stButton>button:hover {
-        background-color: #007BB5;
-        transform: scale(1.02);
+        background-color: #004d80; /* Azul oscuro al pasar ratón */
+        transform: scale(1.05);
+        color: #FF6600; /* Texto naranja al pasar ratón */
     }
     
-    /* Ajuste Logo */
+    /* 5. ESTILO VMS (Simulación de Panel de Carretera) */
+    .vms-icon {
+        background-color: #111;
+        color: #FFCC00; /* Color LED Ambar */
+        font-family: 'Courier New', monospace;
+        padding: 5px 12px;
+        border-radius: 5px;
+        border: 2px solid #444;
+        font-weight: bold;
+        font-size: 24px;
+        display: inline-block;
+        box-shadow: 0 0 10px rgba(255, 204, 0, 0.3); /* Resplandor LED */
+        margin-bottom: 10px;
+    }
+
+    /* Centrar Logo */
     [data-testid="stImage"] { display: flex; justify_content: center; }
+    
+    /* Texto de ayuda de los inputs más legible */
+    label { font-weight: bold !important; color: #444 !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- CABECERA ---
-# Logo SWARCO (Versión negra/oscura limpia)
-st.image("https://www.swarco.com/themes/custom/swarco/logo.svg", width=280)
+st.image("https://www.swarco.com/themes/custom/swarco/logo.svg", width=300)
 
-st.markdown("<h1 style='text-align: center; color: #333;'>Apertura de Incidencia</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #666;'>Complete el formulario para solicitar asistencia técnica.</p>", unsafe_allow_html=True)
+# Título Principal (Texto blanco porque el fondo ahora es azul)
+st.markdown("<h1 style='color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>Portal de Soporte Técnico</h1>", unsafe_allow_html=True)
+st.markdown("<p style='color: #E6F4FA; font-size: 18px;'>Complete el formulario para registrar su incidencia.</p>", unsafe_allow_html=True)
 
 # --- FORMULARIO ---
 with st.form("form_cliente"):
     
-    # SECCIÓN 1: SOLICITANTE
-    st.markdown("### 👤 Datos del Solicitante")
+    # SECCIÓN 1: SOLICITANTE (CON ICONO VMS)
+    # Creamos un "Panel VMS" con HTML para el icono
+    st.markdown("""
+        <div style="text-align: center;">
+            <div class="vms-icon">ℹ INFO</div>
+            <h3 style="border:none;">Datos de Contacto</h3>
+        </div>
+        """, unsafe_allow_html=True)
+    
     col1, col2 = st.columns(2)
     with col1:
         cliente = st.text_input("Empresa / Cliente *")
@@ -94,38 +135,47 @@ with st.form("form_cliente"):
         email_contacto = st.text_input("Email de Contacto *")
         telf_contacto = st.text_input("Teléfono (Opcional)")
 
-    # SECCIÓN 2: PANEL / EQUIPO
-    st.markdown("### 📟 Datos del Panel / Equipo")
+    # SECCIÓN 2: PANEL
+    st.markdown("""
+        <div style="text-align: center; margin-top: 20px;">
+            <div class="vms-icon">📟 VMS</div>
+            <h3 style="border:none;">Datos del Equipo</h3>
+        </div>
+        """, unsafe_allow_html=True)
+
     col3, col4 = st.columns(2)
     with col3:
         pais = st.selectbox("País *", LISTA_PAISES)
         serie = st.text_input("Número de Serie *")
     with col4:
-        proyecto = st.text_input("Proyecto / Ubicación (Opcional)")
-        modelo = st.text_input("Modelo de Panel (Opcional)")
+        proyecto = st.text_input("Proyecto / Ubicación")
+        modelo = st.text_input("Modelo de Panel")
 
     # SECCIÓN 3: DETALLE
-    st.markdown("### ⚠️ Detalle de la Incidencia")
+    st.markdown("""
+        <div style="text-align: center; margin-top: 20px;">
+            <div class="vms-icon">⚠ FALLO</div>
+            <h3 style="border:none;">Detalle de Incidencia</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
     prioridad = st.selectbox("Prioridad", ["Normal", "Alta", "Urgente / Crítica"])
-    descripcion = st.text_area("Descripción del problema *", height=150, placeholder="Explique el fallo, códigos de error, qué estaba haciendo cuando ocurrió...")
+    descripcion = st.text_area("Descripción del problema *", height=150)
     
-    # SUBIDA DE ARCHIVOS
-    st.markdown("---")
-    adjuntos = st.file_uploader("Adjuntar fotos o archivos (Máx 3)", accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'pdf', 'xlsx'])
+    st.markdown("<div style='text-align: center; margin-bottom: 10px;'><b>Adjuntar archivos (Fotos/PDF)</b></div>", unsafe_allow_html=True)
+    adjuntos = st.file_uploader("", accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'pdf', 'xlsx'], label_visibility="collapsed")
     
-    st.write("") # Espacio
-    # Botón (Se centra por CSS)
+    st.write("") 
     enviar = st.form_submit_button("🚀 ENVIAR SOLICITUD")
 
 # --- LÓGICA DE ENVÍO ---
 if enviar:
-    # Validaciones de campos obligatorios
     if not cliente or not contacto or not email_contacto or not pais or not serie or not descripcion:
-        st.error("❌ Por favor, revise los campos marcados con asterisco (*). Son obligatorios.")
+        st.error("❌ Faltan datos obligatorios (*)")
     else:
-        with st.spinner("Procesando solicitud y enviando archivos..."):
+        with st.spinner("Conectando con central..."):
             try:
-                # 1. Crear Excel de Datos
+                # 1. Excel
                 fecha = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
                 datos_dict = {
                     'ID': ['WEB'], 
@@ -133,7 +183,7 @@ if enviar:
                     'Cliente': [cliente],
                     'Proyecto': [proyecto],
                     'País': [pais],
-                    'Serie': [serie], # Dato Crítico
+                    'Serie': [serie],
                     'Modelo': [modelo],
                     'Contacto': [contacto],
                     'Email': [email_contacto],
@@ -148,53 +198,42 @@ if enviar:
                     df.to_excel(writer, index=False)
                 excel_bytes = buffer.getvalue()
 
-                # 2. Configurar Email
+                # 2. Email
                 msg = MIMEMultipart()
                 msg['From'] = EMAIL_EMISOR
                 msg['To'] = EMAIL_RECEPTOR
                 msg['Subject'] = f"{ASUNTO_CLAVE}: {cliente} - {pais}"
 
-                # Cuerpo HTML
                 cuerpo_html = f"""
-                <div style="font-family: Arial, sans-serif; color: #333; padding: 20px;">
-                    <h2 style="color: #FF6600; border-bottom: 2px solid #FF6600;">Nueva Incidencia Web</h2>
-                    
-                    <p><b>📅 Fecha:</b> {fecha}</p>
-                    
-                    <h3 style="background-color: #eee; padding: 5px;">👤 Contacto</h3>
-                    <ul>
-                        <li><b>Cliente:</b> {cliente}</li>
-                        <li><b>Persona:</b> {contacto}</li>
-                        <li><b>Email:</b> <a href="mailto:{email_contacto}">{email_contacto}</a></li>
-                        <li><b>Teléfono:</b> {telf_contacto}</li>
-                    </ul>
-
-                    <h3 style="background-color: #eee; padding: 5px;">📟 Equipo</h3>
-                    <ul>
-                        <li><b>País:</b> {pais}</li>
-                        <li><b>Nº Serie:</b> {serie}</li>
-                        <li><b>Proyecto:</b> {proyecto}</li>
-                    </ul>
-
-                    <div style="border: 1px solid #ddd; padding: 15px; margin-top: 15px; background-color: #fff9f5;">
-                        <b style="color: #FF6600;">DESCRIPCIÓN:</b><br>
-                        {descripcion}
+                <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; border: 2px solid #009FE3;">
+                    <h2 style="color: #009FE3; text-align: center;">Nueva Incidencia Web</h2>
+                    <p style="text-align: center;"><b>📅 {fecha}</b></p>
+                    <hr>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr><td style="padding: 5px;"><b>Cliente:</b></td><td>{cliente}</td></tr>
+                        <tr><td style="padding: 5px;"><b>Contacto:</b></td><td>{contacto}</td></tr>
+                        <tr><td style="padding: 5px;"><b>Email:</b></td><td>{email_contacto}</td></tr>
+                        <tr><td style="padding: 5px;"><b>Teléfono:</b></td><td>{telf_contacto}</td></tr>
+                        <tr style="background-color: #f2f2f2;"><td style="padding: 5px;"><b>Nº Serie:</b></td><td><b>{serie}</b></td></tr>
+                        <tr><td style="padding: 5px;"><b>País:</b></td><td>{pais}</td></tr>
+                    </table>
+                    <br>
+                    <div style="background-color: #FFEEE0; padding: 15px; border-left: 5px solid #FF6600;">
+                        <b>DESCRIPCIÓN:</b><br>{descripcion}
                     </div>
                 </div>
                 """
                 msg.attach(MIMEText(cuerpo_html, 'html'))
 
-                # 3. Adjuntar el Excel (Obligatorio para tu Monitor)
+                # Adjuntos
                 part_excel = MIMEBase('application', "octet-stream")
                 part_excel.set_payload(excel_bytes)
                 encoders.encode_base64(part_excel)
                 part_excel.add_header('Content-Disposition', f'attachment; filename="{NOMBRE_ADJUNTO_EXCEL}"')
                 msg.attach(part_excel)
 
-                # 4. Adjuntar FOTOS/ARCHIVOS del cliente
                 if adjuntos:
                     for archivo in adjuntos:
-                        # Leer archivo de memoria
                         bytes_archivo = archivo.getvalue()
                         part_file = MIMEBase('application', "octet-stream")
                         part_file.set_payload(bytes_archivo)
@@ -202,15 +241,15 @@ if enviar:
                         part_file.add_header('Content-Disposition', f'attachment; filename="{archivo.name}"')
                         msg.attach(part_file)
 
-                # 5. Enviar por SMTP Gmail
                 server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
                 server.login(EMAIL_EMISOR, PASSWORD_EMISOR)
                 server.sendmail(EMAIL_EMISOR, EMAIL_RECEPTOR, msg.as_string())
                 server.quit()
 
-                st.success("✅ ¡Solicitud enviada con éxito! Su número de serie ha sido registrado.")
+                st.success("✅ Solicitud enviada correctamente.")
                 st.balloons()
                 
             except Exception as e:
-                st.error(f"❌ Error de conexión al enviar: {e}")
+                st.error(f"Error: {e}")
+
 
