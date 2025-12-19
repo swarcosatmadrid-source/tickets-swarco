@@ -28,59 +28,61 @@ st.set_page_config(page_title="Soporte SWARCO", page_icon="🚦", layout="center
 # --- ESTILOS CSS (DISEÑO PERSONALIZADO) ---
 st.markdown("""
     <style>
-    /* 1. FONDO AZUL SWARCO (Degradado vertical) */
+    /* 1. FONDO AZUL SWARCO */
     .stApp {
         background: linear-gradient(180deg, #009FE3 0%, #005F87 100%);
         background-attachment: fixed;
     }
 
-    /* Ocultar elementos de Streamlit */
+    /* Ocultar elementos */
     #MainMenu, footer, header {visibility: hidden;}
 
     /* 2. DISEÑO DEL FORMULARIO (TARJETA) */
     [data-testid="stForm"] {
         background-color: #FFFFFF;
         padding: 3rem;
-        border-radius: 20px;
+        border-radius: 10px; /* Bordes de la tarjeta menos redondos */
         box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        border: 4px solid #FF6600; /* BORDE NARANJA */
+        border: 4px solid #FF6600; 
     }
 
-    /* 3. TÍTULOS Y TEXTOS CENTRADOS */
-    h1, h2, h3, p {
-        text-align: center !important;
-    }
+    /* 3. TÍTULOS CENTRADOS */
+    h1, h2, h3, p { text-align: center !important; }
     
-    /* 4. BOTÓN CENTRADO */
+    /* 4. BOTÓN CUADRADO Y GRANDE */
     .stButton {
         display: flex;
         justify-content: center;
     }
     .stButton>button {
-        width: 70%;
+        width: 100%; /* Ocupa todo el ancho disponible */
         background-color: #009FE3;
         color: white;
         font-weight: bold;
         border: none;
-        border-radius: 50px;
-        height: 55px;
+        
+        /* AQUÍ ESTÁ EL CAMBIO A CUADRADO */
+        border-radius: 5px; /* 0px sería puntas afiladas, 5px es cuadrado estándar */
+        
+        height: 60px; /* Más alto para que destaque */
         font-size: 20px !important;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        transition: transform 0.2s;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        transition: all 0.2s;
+        text-transform: uppercase; /* Letras en mayúscula para más fuerza */
     }
     .stButton>button:hover {
         background-color: #004d80;
-        transform: scale(1.05);
         color: #FF6600;
+        border: 2px solid #FF6600; /* Borde naranja al pasar ratón */
     }
     
-    /* 5. ESTILO VMS (Simulación de Panel de Carretera) */
+    /* 5. ESTILO ICONOS VMS */
     .vms-icon {
         background-color: #111;
-        color: #FFCC00; /* Color LED Ambar */
+        color: #FFCC00;
         font-family: 'Courier New', monospace;
         padding: 5px 12px;
-        border-radius: 5px;
+        border-radius: 4px;
         border: 2px solid #444;
         font-weight: bold;
         font-size: 24px;
@@ -89,7 +91,7 @@ st.markdown("""
         margin-bottom: 10px;
     }
 
-    /* 6. CENTRADO DEL LOGO (CSS FORZADO) */
+    /* 6. LOGO CENTRADO */
     [data-testid="stImage"] {
         display: flex;
         justify-content: center;
@@ -107,19 +109,17 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- CABECERA ---
-# TRUCO PARA CENTRAR: Usamos 3 columnas y ponemos el logo en la del medio
 c_logo1, c_logo2, c_logo3 = st.columns([1, 2, 1]) 
 with c_logo2:
     st.image("https://www.swarco.com/themes/custom/swarco/logo.svg", use_column_width=True)
 
-# Título Principal
 st.markdown("<h1 style='color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>Portal de Soporte Técnico</h1>", unsafe_allow_html=True)
 st.markdown("<p style='color: #E6F4FA; font-size: 18px;'>Complete el formulario para registrar su incidencia.</p>", unsafe_allow_html=True)
 
 # --- FORMULARIO ---
 with st.form("form_cliente"):
     
-    # SECCIÓN 1: SOLICITANTE
+    # SECCIÓN 1
     st.markdown("""
         <div style="text-align: center;">
             <div class="vms-icon">ℹ INFO</div>
@@ -135,7 +135,7 @@ with st.form("form_cliente"):
         email_contacto = st.text_input("Email de Contacto *")
         telf_contacto = st.text_input("Teléfono (Opcional)")
 
-    # SECCIÓN 2: PANEL
+    # SECCIÓN 2
     st.markdown("---")
     st.markdown("""
         <div style="text-align: center;">
@@ -152,7 +152,7 @@ with st.form("form_cliente"):
         proyecto = st.text_input("Proyecto / Ubicación")
         modelo = st.text_input("Modelo de Panel")
 
-    # SECCIÓN 3: DETALLE
+    # SECCIÓN 3
     st.markdown("---")
     st.markdown("""
         <div style="text-align: center;">
@@ -168,6 +168,7 @@ with st.form("form_cliente"):
     adjuntos = st.file_uploader("", accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'pdf', 'xlsx'], label_visibility="collapsed")
     
     st.write("") 
+    # El botón ahora será cuadrado y ancho gracias al CSS
     enviar = st.form_submit_button("🚀 ENVIAR SOLICITUD")
 
 # --- LÓGICA DE ENVÍO ---
