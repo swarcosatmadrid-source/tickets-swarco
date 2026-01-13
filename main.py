@@ -1,18 +1,26 @@
 import streamlit as st
+import os
+import sys
+
+# Esto obliga al sistema a buscar en la carpeta donde está main.py
+directorio_actual = os.path.dirname(os.path.abspath(__file__))
+if directorio_actual not in sys.path:
+    sys.path.append(directorio_actual)
+
+# Ahora sí, el resto de imports
 import uuid
 import pandas as pd
-import sys
-import os
 from datetime import datetime
-
-# --- TRUCO PARA QUE EL SERVIDOR ENCUENTRE TUS ARCHIVOS ---
-sys.path.append(os.path.dirname(__file__))
-
-# Ahora sí, las importaciones locales
-from correo import enviar_email_outlook
-from estilos import cargar_estilos
-from idiomas import textos
 from streamlit_gsheets import GSheetsConnection
+
+# Importaciones locales (tus archivos)
+try:
+    from estilos import cargar_estilos
+    from correo import enviar_email_outlook
+    from idiomas import textos
+except ImportError as e:
+    st.error(f"Error cargando archivos locales: {e}")
+    st.stop()
 
 # 1. Configuración de página
 st.set_page_config(page_title="SWARCO SAT Portal", layout="wide")
