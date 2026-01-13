@@ -1,31 +1,38 @@
 import streamlit as st
 
-def cargar_estilos(): # Cambié el nombre para que coincida con el main
+def cargar_estilos():
     st.markdown("""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
-        html, body, [class*="css"] { font-family: 'Roboto', sans-serif; }
-        .stApp { background-color: #ffffff; }
-        .block-container { padding-top: 1rem; max-width: 850px; }
+        /* 1. BAJAMOS EL CONTENIDO PARA QUE EL LOGO NO SE CORTE */
+        .block-container {
+            padding-top: 3.5rem !important; 
+            max-width: 850px !important;
+        }
         
+        /* 2. TÍTULOS CON EL NARANJA SWARCO (#F29400) */
         .section-header {
+            border-bottom: 3px solid #F29400; /* La línea naranja de su web */
             color: #00549F;
-            font-size: 20px;
             font-weight: 700;
-            text-align: center;
-            margin-top: 30px;
-            margin-bottom: 10px;
+            font-size: 1.1rem;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
             text-transform: uppercase;
-            border-bottom: 2px solid #009FE3;
-            padding-bottom: 5px;
         }
 
-        div.stButton > button {
-            background-color: #00549F !important;
+        /* 3. BOTÓN PRINCIPAL NARANJA (Igual a los de swarco.com) */
+        div.stButton > button:first-child {
+            background-color: #F29400 !important;
             color: white !important;
-            border-radius: 4px !important;
-            height: 50px !important;
-            width: 100% !important;
+            border: none !important;
+            border-radius: 2px !important; /* Bordes más rectos, más serios */
+            font-weight: bold !important;
+            padding: 0.6rem 2rem !important;
+        }
+
+        /* 4. AJUSTE DEL LOGO Y HEADER */
+        [data-testid="stHeader"] {
+            background: rgba(0,0,0,0); /* Hace la barra de arriba transparente */
         }
         </style>
     """, unsafe_allow_html=True)
