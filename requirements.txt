@@ -5,4 +5,5 @@ phonenumbers
 pycountry
 st-gsheets-connection
 gspread
+streamlit_javascript
 xlsxwriter
