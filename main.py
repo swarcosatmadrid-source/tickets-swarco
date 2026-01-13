@@ -12,65 +12,58 @@ from estilos import cargar_estilos
 from idiomas import traducir_interfaz
 from paises import PAISES_DATA
 from correo import enviar_email_outlook
-from streamlit_gsheets import GSheetsConnection
 
-# 1. CONFIGURACIÓN DE PÁGINA
+# 1. Configuración de pantalla
 st.set_page_config(page_title="SWARCO SAT GLOBAL", layout="centered", page_icon="🚥")
 cargar_estilos()
 
-# Conexión a base de datos (GSheets)
-try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-except:
-    pass
-
-# --- HEADER: LOGO | BUSCADOR MUNDIAL | SEMÁFORO ---
+# --- HEADER: LOGO | BUSCADOR DINÁMICO | SEMÁFORO ---
 col_logo, col_lang, col_sem = st.columns([1.2, 1.5, 0.5])
 
 with col_logo:
     st.image("logo.png", width=130)
 
 with col_lang:
-    # Mapeo de idiomas del mundo (Códigos ISO)
-    mundo_idiomas = {
-        "Castellano 🇪🇸": "es",
-        "Euskara (Ikurriña)": "eu",
-        "Català (Senyera)": "ca",
-        "English 🇬🇧": "en",
-        "Arabic (العربية) 🇸🇦": "ar",
-        "Deutsch 🇩🇪": "de",
-        "Français 🇫🇷": "fr",
-        "Japonés (日本語) 🇯🇵": "ja",
-        "Hebreo (עברית) 🇮🇱": "iw",
-        "Chino (中文) 🇨🇳": "zh-CN"
-    }
-    
-    # Selector que permite BUSCAR escribiendo
-    opcion_elegida = st.selectbox("Seleccione Idioma / Language", list(mundo_idiomas.keys()), label_visibility="collapsed")
-    codigo_iso = mundo_idiomas[opcion_elegida]
-    
-    # LÓGICA DE IMAGEN REAL PARA BANDERAS (Para que no fallen como los emojis)
-    if "Euskara" in opcion_elegida:
-        st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Flag_of_the_Basque_Country.svg/320px-Flag_of_the_Basque_Country.svg.png", width=40)
-    elif "Castellano" in opcion_elegida:
-        st.image("https://flagcdn.com/w80/es.png", width=40)
-    elif "Català" in opcion_elegida:
-        st.image("https://flagcdn.com/w80/es-ct.png", width=40)
-    else:
-        # Para el resto del mundo usamos flagcdn por código ISO
-        st.image(f"https://flagcdn.com/w80/{codigo_iso if codigo_iso != 'en' else 'gb'}.png", width=40)
+    # Selector de idioma: El cliente puede escribir o elegir
+    # Agregamos los que tienen banderas "especiales" y el resto se busca solo
+    idioma_input = st.selectbox("Idioma / Language", 
+        ["Castellano", "Euskara", "Català", "English", "Arabic", "Deutsch", "Français", "Japonés", "Hebreo", "Chino"],
+        label_visibility="collapsed")
 
-    # LLAMADA AL SEGMENTO DE IDIOMAS (Segmentación real)
-    t = traducir_interfaz(codigo_iso)
+    # 1. Obtenemos el código ISO a través de un mapeo simple
+    mapeo_codigos = {
+        "Castellano": "es", "Euskara": "eu", "Català": "ca", "English": "en",
+        "Arabic": "ar", "Deutsch": "de", "Français": "fr", "Japonés": "ja",
+        "Hebreo": "iw", "Chino": "zh-CN"
+    }
+    cod = mapeo_codigos.get(idioma_input, "es")
+
+    # 2. LÓGICA DE BANDERA INTELIGENTE (Sin bases pregrabadas gigantes)
+    # Si es una región específica, usamos el link directo para que no falle.
+    if idioma_input == "Euskara":
+        url_bandera = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Flag_of_the_Basque_Country.svg/80px-Flag_of_the_Basque_Country.svg.png"
+    elif idioma_input == "Català":
+        url_bandera = "https://flagcdn.com/w80/es-ct.png"
+    else:
+        # Para el resto del mundo, el sistema BUSCA la bandera usando el código ISO
+        # Corregimos casos especiales: 'ar' (Árabe) -> 'sa' (Arabia), 'en' -> 'gb'
+        cod_f = "sa" if cod == "ar" else ("gb" if cod == "en" else cod)
+        url_bandera = f"https://flagcdn.com/w80/{cod_f}.png"
+
+    # Mostramos la bandera encontrada
+    st.image(url_bandera, width=40)
+    
+    # Traducimos todo el portal al idioma detectado
+    t = traducir_interfaz(cod)
 
 with col_sem:
     st.markdown("<h2 style='text-align:right; margin:0;'>🚥</h2>", unsafe_allow_html=True)
 
-# Título Principal centrado (Azul Swarco)
+# --- EL RESTO DEL FORMULARIO SE MANTIENE 100% FIEL A SWARCO ---
 st.markdown(f"<h1 style='text-align: center; color: #00549F; margin-top: 0;'>{t['titulo']}</h1>", unsafe_allow_html=True)
 st.markdown(f"<p style='text-align: center; color: #666;'>{t['sub']}</p>", unsafe_allow_html=True)
 
-# --- CATEGORÍA 1: IDENTIFICACIÓN DEL CLIENTE ---
+# SECCIÓN 1: CLIENTE
 st.markdown(f'<div class="section-header">{t["cat1"]}</div>', unsafe_allow_html=True)
 c1, c2 = st.columns(2)
 with c1:
@@ -80,13 +73,11 @@ with c1:
 with c2:
     email_usr = st.text_input(t['email'])
     p_nombres = list(PAISES_DATA.keys())
-    idx_sp = p_nombres.index("Spain") if "Spain" in p_nombres else 0
-    pais_sel = st.selectbox(t['pais'], p_nombres, index=idx_sp)
+    pais_sel = st.selectbox(t['pais'], p_nombres, index=p_nombres.index("Spain") if "Spain" in p_nombres else 0)
     prefijo = PAISES_DATA[pais_sel]
-    tel_raw = st.text_input(f"{t['tel']} ({prefijo})")
-    tel_usr = f"{prefijo} {tel_raw}"
+    tel_usr = f"{prefijo} {st.text_input(f'{t['tel']} ({prefijo})')}"
 
-# --- CATEGORÍA 2: IDENTIFICACIÓN DEL EQUIPO ---
+# SECCIÓN 2: EQUIPO
 st.markdown(f'<div class="section-header">{t["cat2"]}</div>', unsafe_allow_html=True)
 st.info(f"💡 {t['pegatina']}")
 st.image("etiqueta.jpeg", use_container_width=True)
@@ -100,49 +91,32 @@ with st.container():
     ref_in = ce2.text_input("REF / PN")
     urg_in = ce3.selectbox(t['prioridad'], ["Normal", "Alta", "Crítica"])
     
-    # --- CATEGORÍA 3: DESCRIPCIÓN DEL PROBLEMA (Orden corregido) ---
+    # SECCIÓN 3: PROBLEMA
     st.markdown(f'<div class="section-header">{t["cat3"]}</div>', unsafe_allow_html=True)
     st.markdown(f"**{t['desc']}**")
     falla_in = st.text_area("", key="falla_area", label_visibility="collapsed")
-    
-    st.markdown(f"**{t['fotos']}**")
-    st.file_uploader("", accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'mp4'], label_visibility="collapsed")
+    st.file_uploader("", accept_multiple_files=True, type=['png', 'jpg', 'mp4'], label_visibility="collapsed")
 
-    if st.button(t['btn_agregar'] if 'btn_agregar' in t else "➕ AGREGAR AL TICKET", use_container_width=True):
+    if st.button(t['btn_agregar'] if 'btn_agregar' in t else "➕ AGREGAR", use_container_width=True):
         if ns_in and falla_in:
             st.session_state.lista_equipos.append({"ns": ns_in, "ref": ref_in, "urgencia": urg_in, "desc": falla_in})
             st.rerun()
 
-# Tabla de equipos añadidos
 if st.session_state.lista_equipos:
-    st.markdown("---")
     st.table(pd.DataFrame(st.session_state.lista_equipos))
 
-# --- BOTÓN DE ENVÍO FINAL (Naranja Corporativo) ---
+# ENVÍO
 st.markdown("<br>", unsafe_allow_html=True)
 if st.button(t['btn'], type="primary", use_container_width=True):
     if not empresa or not email_usr or not st.session_state.lista_equipos:
-        st.error("Rellene los campos obligatorios (*) y agregue al menos un equipo.")
+        st.error("Datos incompletos.")
     else:
         t_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
         if enviar_email_outlook(empresa, contacto, proyecto, st.session_state.lista_equipos, email_usr, t_id, tel_usr):
-            try:
-                # Guardar en base de datos
-                fila = pd.DataFrame([{"ID": t_id, "Fecha": datetime.now().strftime("%d/%m/%Y"), "Empresa": empresa, "Estado": "Pendiente"}])
-                df_ex = conn.read(worksheet="Sheet1")
-                conn.update(worksheet="Sheet1", data=pd.concat([df_ex, fila], ignore_index=True))
-            except:
-                pass
             st.success(t['exito'])
-            st.info(t['msg_tecnico'])
             st.balloons()
             st.session_state.lista_equipos = []
 
-# --- FOOTER CORPORATIVO ---
+# FOOTER
 st.markdown("---")
-st.markdown("""
-    <div style='text-align: center; color: #999; font-size: 12px; padding-bottom: 30px;'>
-        <p>© 2024 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>
-        <p><a href='https://www.swarco.com/es/aviso-legal' target='_blank' style='color: #F29400;'>Aviso Legal</a> | <a href='https://www.swarco.com/es/privacidad' target='_blank' style='color: #F29400;'>Privacidad</a></p>
-    </div>
-""", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2024 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
