@@ -19,28 +19,32 @@ cargar_estilos()
 
 # --- HEADER: LOGO Y TRADUCTOR ---
 col_logo, col_lang = st.columns([1.5, 1])
-
 with col_logo:
     st.image("logo.png", width=250)
-
 with col_lang:
     idioma_txt = st.text_input("Idioma / Language", value="Castellano")
     t = traducir_interfaz(idioma_txt)
 
-# --- BLOQUE CSS PARA MATAR EL ROJO (PARCHE ESPECÍFICO) ---
-# Este bloque solo ataca el color sin cambiar la estructura del código
+# --- BLOQUE CSS ULTRA-REFORZADO (SIN ROJO) ---
 st.markdown("""
     <style>
-    /* Forzar azul en la raya del slider que antes salía roja */
-    .stSlider > div [data-baseweb="slider"] > div {
-        background-color: #00549F !important;
+    /* 1. Cambiamos el color primario global para que Streamlit no use rojo en nada */
+    :root {
+        --primary-color: #00549F !important;
     }
-    /* El carril de fondo con tu degradado */
-    .stSlider > div [data-baseweb="slider"] {
+
+    /* 2. Matamos la raya roja que sale al mover la pelota (Active Track) */
+    div[data-baseweb="slider"] > div:first-child > div:nth-child(2) {
+        background-color: transparent !important;
+    }
+
+    /* 3. Forzamos el degradado en el carril de fondo */
+    div[data-baseweb="slider"] > div:first-child > div:first-child {
         background: linear-gradient(to right, #ADD8E6 0%, #F29400 100%) !important;
     }
-    /* Color de los textos de los extremos */
-    [data-testid="stTickBarMin"], [data-testid="stTickBarMax"] {
+
+    /* 4. Aseguramos que los números y marcas sean azules, NO rojos */
+    [data-testid="stTickBarMin"], [data-testid="stTickBarMax"], span[data-baseweb="typography"] {
         color: #00549F !important;
     }
     </style>
@@ -60,7 +64,6 @@ with c2:
     idx_def = p_nombres.index("Spain") if "Spain" in p_nombres else 0
     pais_sel = st.selectbox(t['pais'], p_nombres, index=idx_def)
     
-    # Teléfono blindado como estaba originalmente
     prefijo = PAISES_DATA[pais_sel]
     tel_raw = st.text_input(f"{t['tel']} (Prefijo: {prefijo})", placeholder="Solo números")
     tel_limpio = "".join(filter(str.isdigit, tel_raw))
@@ -91,14 +94,14 @@ st.markdown(f"**{t['urg_titulo']}**")
 opciones_urg = [t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']]
 urg_val = st.select_slider(t['urg_instruccion'], options=opciones_urg, value=t['u3'])
 
-# Color de la pelota dinámico
+# Color de la pelota (Thumb) dinámico
 colores_p = {t['u1']:"#ADD8E6", t['u2']:"#90C3D4", t['u3']:"#7AB1C5", t['u4']:"#C2A350", t['u5']:"#D69B28", t['u6']:"#F29400"}
 color_thumb = colores_p.get(urg_val, "#7AB1C5")
 st.markdown(f"<style>div[role='slider'] {{ background-color: {color_thumb} !important; border: 2px solid white !important; }}</style>", unsafe_allow_html=True)
 
 falla_in = st.text_area(t['desc_instruccion'], placeholder=t['desc_placeholder'])
 
-# MULTIMEDIA (Como estaba en la versión que te gustó)
+# MULTIMEDIA
 st.markdown(f"**{t['fotos']}**")
 archivos = st.file_uploader("", accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'mp4'], label_visibility="collapsed")
 
@@ -127,6 +130,7 @@ with cf1:
                 st.success(t['exito'])
                 st.balloons()
                 st.session_state.lista_equipos = []
+                st.rerun()
 
 with cf2:
     if st.button(f"🚪 {t['btn_salir']}", use_container_width=True):
@@ -134,6 +138,7 @@ with cf2:
 
 st.markdown("---")
 st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2024 SWARCO TRAFFIC SPAIN</p>", unsafe_allow_html=True)
+
 
 
 
