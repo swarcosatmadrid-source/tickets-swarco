@@ -1,6 +1,6 @@
 import streamlit as st
 
-def aplicar_estilos_swarco():
+def cargar_estilos(): # Cambié el nombre para que coincida con el main
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
@@ -20,16 +20,8 @@ def aplicar_estilos_swarco():
             padding-bottom: 5px;
         }
 
-        /* Contenedores de botones personalizados */
-        .btn-generar > button {
+        div.stButton > button {
             background-color: #00549F !important;
-            color: white !important;
-            border-radius: 4px !important;
-            height: 50px !important;
-            width: 100% !important;
-        }
-        .btn-cerrar > button {
-            background-color: #D32F2F !important;
             color: white !important;
             border-radius: 4px !important;
             height: 50px !important;

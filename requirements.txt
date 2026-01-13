@@ -1,6 +1,4 @@
 streamlit
 deep-translator
 phonenumbers
-st-gsheets-connection
-gspread
 pycountry
