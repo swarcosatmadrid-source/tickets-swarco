@@ -1,4 +1,4 @@
 streamlit
-pandas
-xlsxwriter
-openpyxl
+deep-translator
+phonenumbers
+pycountry
