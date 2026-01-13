@@ -1,11 +1,13 @@
 import streamlit as st
+import os
+import sys
 import uuid
 import pandas as pd
 from datetime import datetime
 
 # Importaciones de tus archivos (Verifica que se llamen así)
 from correo import enviar_email_outlook
-from estilos import aplicar_estilos_swarco 
+from estilos import cargar_estilos
 from idiomas import traducir_interfaz
 from paises import PAISES_DATA
 from streamlit_gsheets import GSheetsConnection
