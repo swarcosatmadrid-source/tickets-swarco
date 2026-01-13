@@ -13,21 +13,34 @@ from idiomas import traducir_interfaz
 from paises import PAISES_DATA
 from correo import enviar_email_outlook
 
-# 1. Configuración de página
-st.set_page_config(page_title="SWARCO SAT PORTAL", layout="centered", page_icon="🚥")
+# 1. Configuración de pantalla
+st.set_page_config(page_title="SAT SWARCO", layout="centered", page_icon="🚥")
 cargar_estilos()
 
-# --- HEADER BÁSICO (Fijamos Castellano por ahora para avanzar) ---
-col_logo, col_lang, col_sem = st.columns([1.2, 1.5, 0.5])
-with col_logo:
-    st.image("logo.png", width=130)
-with col_lang:
-    # Mantenemos el selector simple para no romper el flujo
-    t = traducir_interfaz("Castellano")
-with col_sem:
-    st.markdown("<h3 style='text-align:right; margin:0;'>🚥</h3>", unsafe_allow_html=True)
+# --- HEADER: LOGO GRANDE | IDIOMAS | PMV ---
+col_logo, col_lang, col_pmv = st.columns([1.5, 1, 1])
 
-st.markdown(f"<h1 style='text-align: center; color: #00549F;'>{t['titulo']}</h1>", unsafe_allow_html=True)
+with col_logo:
+    # Logo más grande como pediste
+    st.image("logo.png", width=180) 
+
+with col_lang:
+    # Regresamos a la lista de idiomas que funcionaba genial
+    idiomas_disp = ["Castellano", "English", "Deutsch", "Français", "Català", "Euskara"]
+    idioma_sel = st.selectbox("Seleccione Idioma", idiomas_disp, label_visibility="collapsed")
+    # Mapeo para el traductor
+    mapeo = {"Castellano":"es","English":"en","Deutsch":"de","Français":"fr","Català":"ca","Euskara":"eu"}
+    t = traducir_interfaz(mapeo.get(idioma_sel, "es"))
+
+with col_pmv:
+    # Sustituimos el semáforo por un Panel de Mensajería Variable (PMV)
+    st.markdown("""
+        <div style="background-color: #1a1a1a; border: 3px solid #333; border-radius: 5px; padding: 5px; text-align: center;">
+            <p style="color: #FFD700; font-family: 'Courier New', Courier, monospace; font-weight: bold; font-size: 12px; margin: 0;">
+                TICKET<br>STATUS<br><span style="color: #00FF00;">ONLINE</span>
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
 
 # --- CATEGORÍA 1: IDENTIFICACIÓN DEL CLIENTE ---
 st.markdown(f'<div class="section-header">{t["cat1"]}</div>', unsafe_allow_html=True)
@@ -35,16 +48,24 @@ c1, c2 = st.columns(2)
 with c1:
     empresa = st.text_input(t['cliente'])
     contacto = st.text_input(t['contacto'])
-    # RECUPERADO: Proyecto / Ubicación (Opcional)
     proyecto_ub = st.text_input("Proyecto / Ubicación (Opcional)")
+
 with c2:
     email_usr = st.text_input(t['email'])
     p_nombres = list(PAISES_DATA.keys())
     pais_sel = st.selectbox(t['pais'], p_nombres, index=p_nombres.index("Spain") if "Spain" in p_nombres else 0)
-    tel_usr = f"{PAISES_DATA[pais_sel]} {st.text_input(t['tel'])}"
+    
+    # VALIDACIÓN DE TELÉFONO: Solo números
+    prefijo = PAISES_DATA[pais_sel]
+    tel_raw = st.text_input(f"{t['tel']} (Solo números)", help=f"Prefijo automático: {prefijo}")
+    
+    # Limpieza inmediata de letras
+    tel_limpio = "".join(filter(str.isdigit, tel_raw))
+    if tel_raw and not tel_raw.isdigit():
+        st.error("⚠️ El teléfono solo debe contener números.")
+    tel_usr = f"{prefijo} {tel_limpio}"
 
 # --- CATEGORÍA 2: IDENTIFICACIÓN DEL EQUIPO ---
-# Se elimina la urgencia de aquí por tu petición
 st.markdown(f'<div class="section-header">{t["cat2"]}</div>', unsafe_allow_html=True)
 st.info(t['pegatina'])
 st.image("etiqueta.jpeg", use_container_width=True)
@@ -52,59 +73,82 @@ st.image("etiqueta.jpeg", use_container_width=True)
 if 'lista_equipos' not in st.session_state:
     st.session_state.lista_equipos = []
 
-with st.container():
-    ce1, ce2 = st.columns(2)
-    ns_in = ce1.text_input(t['ns_titulo'])
-    ref_in = ce2.text_input("REF / PN")
-    
-    # --- CATEGORÍA 3: DESCRIPCIÓN DEL PROBLEMA + URGENCIA ---
-    st.markdown(f'<div class="section-header">{t["cat3"]}</div>', unsafe_allow_html=True)
-    
-    # BARRA DE URGENCIA DEGRADADA (Azul a Naranja)
-    st.markdown("**Nivel de Urgencia / Priority Level**")
-    # CSS para la barra degradada en el slider
-    st.markdown("""
-        <style>
-        .stSlider > div [data-baseweb="slider"] {
-            background: linear-gradient(to right, #00549F 0%, #F29400 100%);
-            height: 10px;
-            border-radius: 5px;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    # 6 Estados de urgencia
-    prioridad_val = st.select_slider(
-        "Deslice para indicar la urgencia",
-        options=["Muy Baja", "Baja", "Normal", "Alta", "Muy Alta", "CRÍTICA"],
-        value="Normal"
-    )
-    
-    st.markdown(f"**{t['desc']}**")
-    falla_in = st.text_area("", key="falla_area", label_visibility="collapsed")
-    
-    st.file_uploader(t['fotos'], accept_multiple_files=True, type=['png', 'jpg', 'mp4'], label_visibility="collapsed")
+ce1, ce2 = st.columns(2)
+with ce1:
+    ns_in = st.text_input(t['ns_titulo'])
+with ce2:
+    ref_in = st.text_input("REF.") # Cambiado de REF/PN a solo REF.
 
-    if st.button("➕ " + (t['btn_agregar'] if 'btn_agregar' in t else "AGREGAR EQUIPO"), use_container_width=True):
-        if ns_in and falla_in:
-            st.session_state.lista_equipos.append({
-                "ns": ns_in, 
-                "ref": ref_in, 
-                "urgencia": prioridad_val, 
-                "desc": falla_in
-            })
-            st.rerun()
+# --- CATEGORÍA 3: DESCRIPCIÓN DEL PROBLEMA ---
+st.markdown(f'<div class="section-header">{t["cat3"]}</div>', unsafe_allow_html=True)
 
-# Tabla de resumen
+# SLIDER DEGRADADO (Azul Claro a Naranja Swarco)
+st.markdown("**Nivel de Urgencia**")
+st.markdown("""
+    <style>
+    /* Estilo para el slider degradado */
+    .stSlider > div [data-baseweb="slider"] {
+        background: linear-gradient(to right, #87CEEB 0%, #F29400 100%);
+        height: 12px;
+    }
+    /* Estilo para botones más redondeados y modernos */
+    .stButton>button {
+        border-radius: 20px;
+        border: 2px solid #00549F;
+        transition: all 0.3s;
+    }
+    .stButton>button:hover {
+        background-color: #00549F;
+        color: white;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+urg_val = st.select_slider(
+    "Seleccione la prioridad del aviso",
+    options=["Mínima", "Baja", "Normal", "Alta", "Muy Alta", "CRÍTICA"],
+    value="Normal"
+)
+
+# Frase "que la parte" en español neutro
+st.markdown(f"**Por favor, describa de forma concisa la naturaleza de la incidencia y sus síntomas observados.**")
+falla_in = st.text_area("", placeholder="Ej: El equipo no sincroniza con el regulador tras caída de tensión...", label_visibility="collapsed")
+
+# Gestión de espacio de imágenes
+st.markdown("**Multimedia (Máximo 10MB total)**")
+archivos = st.file_uploader("Suba fotos o videos de la avería", accept_multiple_files=True, type=['png', 'jpg', 'mp4'], label_visibility="collapsed")
+
+if archivos:
+    peso_total = sum([f.size for f in archivos]) / (1024 * 1024)
+    porcentaje = min(int((peso_total / 10) * 100), 100)
+    st.progress(porcentaje / 100)
+    st.caption(f"Espacio utilizado: {porcentaje}% de 10MB")
+
+# Botón Agregar Equipo al Ticket
+if st.button("➕ AGREGAR EQUIPO AL TICKET", use_container_width=True):
+    if ns_in and falla_in:
+        st.session_state.lista_equipos.append({"ns": ns_in, "ref": ref_in, "urgencia": urg_val, "desc": falla_in})
+        st.rerun()
+
 if st.session_state.lista_equipos:
     st.table(pd.DataFrame(st.session_state.lista_equipos))
 
-# --- BOTÓN DE ENVÍO FINAL ---
+# --- ACCIONES FINALES ---
 st.markdown("<br>", unsafe_allow_html=True)
-if st.button(t['btn'], type="primary", use_container_width=True):
-    if empresa and st.session_state.lista_equipos:
-        t_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
-        if enviar_email_outlook(empresa, contacto, proyecto_ub, st.session_state.lista_equipos, email_usr, t_id, tel_usr):
-            st.success(t['exito'])
+col_fin1, col_fin2 = st.columns(2)
+
+with col_fin1:
+    if st.button("🚀 GENERAR TICKET", type="primary", use_container_width=True):
+        if empresa and st.session_state.lista_equipos:
+            st.success("Ticket enviado correctamente.")
             st.balloons()
             st.session_state.lista_equipos = []
+
+with col_fin2:
+    # Botón Salir con lógica de cierre
+    if st.button("🚪 SALIR DE LA PÁGINA", use_container_width=True):
+        st.markdown('<script>window.close();</script>', unsafe_allow_html=True)
+        st.warning("Ya puede cerrar esta pestaña.")
+
+st.markdown("---")
+st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2024 SWARCO TRAFFIC SPAIN</p>", unsafe_allow_html=True)
