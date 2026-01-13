@@ -5,7 +5,7 @@ from datetime import datetime
 import os
 import sys
 
-# Asegurar que Streamlit vea los archivos locales
+# Asegurar integridad de rutas locales
 sys.path.append(os.path.dirname(__file__))
 
 from estilos import cargar_estilos
@@ -13,7 +13,7 @@ from idiomas import traducir_interfaz
 from paises import PAISES_DATA
 from correo import enviar_email_outlook
 
-# Configuración de página
+# 1. Configuración de pantalla
 st.set_page_config(page_title="SAT SWARCO", layout="centered", page_icon="🚥")
 cargar_estilos()
 
@@ -24,11 +24,10 @@ with col_logo:
     st.image("logo.png", width=250)
 
 with col_lang:
-    # El buscador ahora entiende idiomas escritos en castellano
     idioma_txt = st.text_input("Idioma / Language", value="Castellano")
     t = traducir_interfaz(idioma_txt)
 
-# --- SECCIÓN 1: CLIENTE ---
+# --- CATEGORÍA 1: CLIENTE ---
 st.markdown(f'<div class="section-header">{t["cat1"]}</div>', unsafe_allow_html=True)
 c1, c2 = st.columns(2)
 
@@ -43,20 +42,16 @@ with c2:
     idx_def = p_nombres.index("Spain") if "Spain" in p_nombres else 0
     pais_sel = st.selectbox(t['pais'], p_nombres, index=idx_def)
     
-    # Lógica de Teléfono con Prefijo y Bloqueo de Letras
     prefijo = PAISES_DATA[pais_sel]
     tel_raw = st.text_input(f"{t['tel']} (Prefijo: {prefijo})", placeholder="Solo números")
-    
-    # Limpiamos el input dejando solo dígitos
     tel_limpio = "".join(filter(str.isdigit, tel_raw))
     
-    # Mostramos error traducido si mete letras
     if tel_raw and not tel_raw.isdigit():
         st.error(f"⚠️ {t['error_tel']}")
     
     tel_final = f"{prefijo}{tel_limpio}"
 
-# --- SECCIÓN 2: EQUIPO ---
+# --- CATEGORÍA 2: IDENTIFICACIÓN DEL EQUIPO ---
 st.markdown(f'<div class="section-header">{t["cat2"]}</div>', unsafe_allow_html=True)
 st.info(t['pegatina'])
 st.image("etiqueta.jpeg", use_container_width=True)
@@ -70,24 +65,49 @@ with ce1:
 with ce2:
     ref_in = st.text_input("REF.")
 
-# --- SECCIÓN 3: PROBLEMA Y URGENCIA ---
+# --- CATEGORÍA 3: DESCRIPCIÓN DEL PROBLEMA + URGENCIA DINÁMICA ---
 st.markdown(f'<div class="section-header">{t["cat3"]}</div>', unsafe_allow_html=True)
 st.markdown(f"**{t['urg_titulo']}**")
 
-# CSS para forzar degradado Swarco y eliminar el rojo
+# Definimos los colores para la pelota según el estado (Azul -> Naranja)
+opciones_urgencia = [t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']]
+colores_pelota = {
+    t['u1']: "#ADD8E6", # Azul Claro
+    t['u2']: "#90C3D4",
+    t['u3']: "#7AB1C5", # Normal
+    t['u4']: "#C2A350",
+    t['u5']: "#D69B28",
+    t['u6']: "#F29400"  # Naranja Swarco (CRÍTICA)
+}
+
+# El Slider
+urg_val = st.select_slider(
+    t['urg_instruccion'],
+    options=opciones_urgencia,
+    value=t['u3']
+)
+
+# CSS DINÁMICO para la barra y la pelota que cambia de color
+color_actual = colores_pelota.get(urg_val, "#7AB1C5")
+
 st.markdown(f"""
     <style>
+    /* El carril del slider con degradado */
     .stSlider > div [data-baseweb="slider"] {{
         background: linear-gradient(to right, #ADD8E6 0%, #F29400 100%) !important;
+        height: 12px;
+        border-radius: 6px;
+    }}
+    /* La pelota (thumb) que cambia de color dinámicamente */
+    .stSlider > div [role="slider"] {{
+        background-color: {color_actual} !important;
+        border: 2px solid white !important;
+        box-shadow: 0px 0px 10px rgba(0,0,0,0.2);
+        width: 22px;
+        height: 22px;
     }}
     </style>
 """, unsafe_allow_html=True)
-
-urg_val = st.select_slider(
-    t['urg_instruccion'],
-    options=[t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']],
-    value=t['u3']
-)
 
 st.markdown(f"**{t['desc_instruccion']}**")
 falla_in = st.text_area("", placeholder=t['desc_placeholder'], label_visibility="collapsed")
@@ -105,9 +125,7 @@ if archivos:
 # Botón Agregar
 if st.button(f"➕ {t['btn_agregar']}", use_container_width=True):
     if ns_in and falla_in:
-        st.session_state.lista_equipos.append({
-            "ns": ns_in, "ref": ref_in, "urgencia": urg_val, "desc": falla_in
-        })
+        st.session_state.lista_equipos.append({"ns": ns_in, "ref": ref_in, "urgencia": urg_val, "desc": falla_in})
         st.rerun()
 
 if st.session_state.lista_equipos:
@@ -132,3 +150,4 @@ with cf2:
 
 st.markdown("---")
 st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2024 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
+
