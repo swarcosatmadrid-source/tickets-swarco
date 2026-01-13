@@ -25,14 +25,22 @@ with col_lang:
     idioma_txt = st.text_input("Idioma / Language", value="Castellano")
     t = traducir_interfaz(idioma_txt)
 
-# --- BLOQUE CSS (DISEÑO SLIDER) ---
+# --- BLOQUE CSS (DISEÑO SLIDER SIN ROJO) ---
 st.markdown("""
     <style>
+    /* Forzamos el degradado en el fondo */
     .stSlider > div [data-baseweb="slider"] {
         background: linear-gradient(to right, #ADD8E6 0%, #F29400 100%) !important;
+        height: 12px !important;
     }
+    /* Matamos la línea roja activa de Streamlit */
+    .stSlider > div [data-baseweb="slider"] > div:nth-child(2) {
+        background-color: transparent !important;
+    }
+    /* Color de los textos de los extremos */
     [data-testid="stTickBarMin"], [data-testid="stTickBarMax"] {
         color: #00549F !important;
+        font-weight: bold !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -62,9 +70,6 @@ st.markdown(f'<div class="section-header">{t["cat2"]}</div>', unsafe_allow_html=
 st.info(t['pegatina'])
 st.image("etiqueta.jpeg", use_container_width=True)
 
-if 'lista_equipos' not in st.session_state:
-    st.session_state.lista_equipos = []
-
 ce1, ce2 = st.columns(2)
 with ce1:
     ns_in = st.text_input(t['ns_titulo'])
@@ -78,7 +83,7 @@ st.markdown(f"**{t['urg_titulo']}**")
 opciones_urg = [t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']]
 urg_val = st.select_slider(t['urg_instruccion'], options=opciones_urg, value=t['u3'])
 
-# Color de pelota dinámico
+# Color de la pelota (thumb) según la selección para que sea visual
 colores_p = {t['u1']:"#ADD8E6", t['u2']:"#90C3D4", t['u3']:"#7AB1C5", t['u4']:"#C2A350", t['u5']:"#D69B28", t['u6']:"#F29400"}
 color_thumb = colores_p.get(urg_val, "#7AB1C5")
 st.markdown(f"<style>div[role='slider'] {{ background-color: {color_thumb} !important; border: 2px solid white !important; }}</style>", unsafe_allow_html=True)
@@ -94,22 +99,26 @@ if archivos:
     st.progress(min(peso_total / 200, 1.0))
     st.caption(f"{peso_total:.2f}MB / 200MB")
 
-# BOTÓN AGREGAR (CON VALIDACIÓN PUNTO 2)
+if 'lista_equipos' not in st.session_state:
+    st.session_state.lista_equipos = []
+
+# BOTÓN AGREGAR CON VALIDACIÓN (PUNTO 2)
 if st.button(f"➕ {t['btn_agregar']}", use_container_width=True):
     if len(ns_in) < 3 or len(falla_in) < 10:
-        st.warning("⚠️ Datos incompletos: N.S. mínimo 3 caracteres y descripción mínimo 10.")
+        st.warning("⚠️ Datos insuficientes para agregar el equipo.")
     else:
         st.session_state.lista_equipos.append({"ns": ns_in, "ref": ref_in, "urgencia": urg_val, "desc": falla_in})
         st.rerun()
 
-# --- PUNTO 3: RESUMEN Y ENVÍO FINAL ---
+# --- RESUMEN Y ACCIONES FINALES (PUNTO 3) ---
 if st.session_state.lista_equipos:
     st.markdown("---")
-    st.subheader("📋 Resumen del Ticket / Ticket Summary")
+    st.subheader(f"📋 {t['cat2']} (Resumen)")
     st.table(pd.DataFrame(st.session_state.lista_equipos))
 
     cf1, cf2 = st.columns(2)
     with cf1:
+        # Botón para enviar el ticket definitivo
         if st.button(f"🚀 {t['btn_generar']}", type="primary", use_container_width=True):
             if empresa and email_usr:
                 ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
@@ -123,9 +132,11 @@ if st.session_state.lista_equipos:
             st.session_state.lista_equipos = []
             st.rerun()
 
+# BOTÓN SALIR SIEMPRE VISIBLE AL FINAL
 st.markdown("---")
-if st.button(f"🚪 {t['btn_salir']}", use_container_width=True):
+if st.button(f"🚪 {t['btn_salir']}", use_container_width=True, key="exit_final"):
     st.warning(t['salir_aviso'])
 
-st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2024 SWARCO TRAFFIC SPAIN</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2024 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
+
 
