@@ -1,59 +1,71 @@
-from deep_translator import GoogleTranslator
-
-def traducir_interfaz(idioma_usuario):
-    # Diccionario Maestro con todas las etiquetas del portal
-    textos_base = {
-        "titulo": "SAT SWARCO TRAFFIC SPAIN",
-        "sub": "Portal de Soporte Técnico",
-        "cat1": "IDENTIFICACIÓN DEL CLIENTE",
-        "cat2": "IDENTIFICACIÓN DEL EQUIPO",
-        "cat3": "DESCRIPCIÓN DEL PROBLEMA",
-        "cliente": "Empresa *",
-        "contacto": "Persona de Contacto *",
-        "proyecto": "Proyecto / Ubicación (Opcional)",
-        "email": "Email *",
-        "pais": "País *",
-        "tel": "Teléfono *",
-        "pegatina": "Localice la REF y N.S en la etiqueta del equipo:",
-        "ns_titulo": "N.S * (Obligatorio)",
-        "urg_titulo": "Nivel de Urgencia / Priority Level",
-        "urg_instruccion": "Deslice para indicar la prioridad de la incidencia",
-        "desc_instruccion": "Por favor, describa de forma concisa la naturaleza de la incidencia y sus síntomas observados.",
-        "desc_placeholder": "Indique brevemente el fallo técnico detectado...",
-        "fotos": "Multimedia (Límite total: 200MB)",
-        "btn_agregar": "AGREGAR EQUIPO AL TICKET",
-        "btn_generar": "GENERAR TICKET",
-        "btn_salir": "SALIR",
-        "exito": "¡Ticket enviado con éxito!",
-        "msg_tecnico": "En breve un técnico se contactará.",
-        "error_tel": "Error: Solo se permiten números. Las letras serán descartadas.",
-        "salir_aviso": "Sesión finalizada. Ya puede cerrar la pestaña.",
-        # Niveles de urgencia
-        "u1": "Mínima", "u2": "Baja", "u3": "Normal", "u4": "Alta", "u5": "Muy Alta", "u6": "CRÍTICA"
+def traducir_interfaz(idioma):
+    # Diccionario de traducciones
+    traducciones = {
+        "Castellano": {
+            "titulo_portal": "Portal de Reporte Técnico SAT",
+            "instruccion_final": "¿Cómo enviar su reporte?",
+            "cat1": "1. IDENTIFICACIÓN DEL CLIENTE",
+            "cliente": "Empresa / Entidad",
+            "contacto": "Persona de Contacto",
+            "proyecto": "Proyecto / Ubicación",
+            "email": "Correo Electrónico",
+            "pais": "País",
+            "tel": "Teléfono de contacto",
+            "error_tel": "Por favor, introduzca solo números",
+            "cat2": "2. IDENTIFICACIÓN DEL EQUIPO",
+            "pegatina": "Localice la pegatina plateada en el equipo",
+            "ns_titulo": "N.S. (Número de Serie)",
+            "cat3": "3. DESCRIPCIÓN DEL PROBLEMA",
+            "urg_titulo": "Prioridad de la incidencia",
+            "urg_instruccion": "Deslice para indicar la prioridad",
+            "u1": "Mínima", "u2": "Baja", "u3": "Normal", 
+            "u4": "Alta", "u5": "Muy Alta", "u6": "CRÍTICA",
+            "desc_instruccion": "Descripción detallada del fallo",
+            "desc_placeholder": "Describa qué sucede con el equipo...",
+            "fotos": "Adjuntar fotos o vídeos (Máx. 200MB)",
+            "btn_agregar": "Añadir otro equipo a la lista",
+            "btn_generar": "GENERAR TICKET",
+            "btn_salir": "SALIR",
+            "exito": "Ticket generado con éxito. Revise su correo.",
+            "salir_aviso": "Asegúrese de haber enviado el ticket antes de salir.",
+            "msg_tecnico": "Su solicitud está siendo procesada por nuestro equipo técnico."
+        },
+        "English": {
+            "titulo_portal": "SAT Technical Reporting Portal",
+            "instruccion_final": "How to submit your report?",
+            "cat1": "1. CUSTOMER IDENTIFICATION",
+            "cliente": "Company / Entity",
+            "contacto": "Contact Person",
+            "proyecto": "Project / Location",
+            "email": "Email Address",
+            "pais": "Country",
+            "tel": "Contact Phone",
+            "error_tel": "Please enter numbers only",
+            "cat2": "2. EQUIPMENT IDENTIFICATION",
+            "pegatina": "Locate the silver sticker on the equipment",
+            "ns_titulo": "S.N. (Serial Number)",
+            "cat3": "3. PROBLEM DESCRIPTION",
+            "urg_titulo": "Incident Priority",
+            "urg_instruccion": "Slide to indicate priority",
+            "u1": "Minimal", "u2": "Low", "u3": "Normal", 
+            "u4": "High", "u5": "Very High", "u6": "CRITICAL",
+            "desc_instruccion": "Detailed description of the fault",
+            "desc_placeholder": "Describe what is happening with the equipment...",
+            "fotos": "Attach photos or videos (Max. 200MB)",
+            "btn_agregar": "Add another equipment to the list",
+            "btn_generar": "GENERATE TICKET",
+            "btn_salir": "EXIT",
+            "exito": "Ticket generated successfully. Check your email.",
+            "salir_aviso": "Make sure you have sent the ticket before exiting.",
+            "msg_tecnico": "Your request is being processed by our technical team."
+        }
     }
 
-    idioma_low = idioma_usuario.lower()
-    # Si es español, devolvemos el base de una vez
-    if any(x in idioma_low for x in ["castellano", "español", "es"]):
-        return textos_base
-    
-    # Mapeos forzados para idiomas regionales
-    if "eusk" in idioma_low: target = "eu"
-    elif "catal" in idioma_low: target = "ca"
-    elif "gall" in idioma_low: target = "gl"
+    # Lógica para detectar idiomas fuera de la lista (Hebreo, Japonés, etc.)
+    if idioma in traducciones:
+        return traducciones[idioma]
     else:
-        try:
-            # Traducimos lo que el usuario escribió para sacar el código ISO (ej: "Japonés" -> "ja")
-            detectado = GoogleTranslator(source='auto', target='en').translate(idioma_usuario)
-            from deep_translator import constants
-            target = constants.GOOGLE_LANGUAGES_TO_CODES.get(detectado.lower(), "en")
-        except:
-            target = "en"
+        # Si escribe algo raro, devolvemos Inglés por defecto para que no explote
+        return traducciones["English"]
 
-    try:
-        translator = GoogleTranslator(source='es', target=target)
-        # Traducimos cada valor del diccionario
-        return {k: (v if k == "titulo" else translator.translate(v)) for k, v in textos_base.items()}
-    except:
-        return textos_base
 
