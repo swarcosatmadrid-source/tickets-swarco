@@ -14,8 +14,7 @@ from streamlit_gsheets import GSheetsConnection
 
 # 1. Configuración de página y estilos originales
 st.set_page_config(page_title="SAT SWARCO", layout="centered", page_icon="🚥")
-aplicar_estilos_swarco()
-
+cargar_estilos()
 # Conexión silenciosa para el histórico
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
