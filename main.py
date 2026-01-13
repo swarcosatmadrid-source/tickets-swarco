@@ -13,8 +13,8 @@ from idiomas import traducir_interfaz
 from paises import PAISES_DATA
 from correo import enviar_email_outlook
 
-# Configuración de página
-st.set_page_config(page_title="SAT SWARCO", layout="centered", page_icon="🚥")
+# Configuración de pestaña del navegador
+st.set_page_config(page_title="SWARCO SAT | Portal Técnico", layout="centered", page_icon="🚥")
 cargar_estilos()
 
 # --- HEADER: LOGO Y TRADUCTOR ---
@@ -25,7 +25,19 @@ with col_lang:
     idioma_txt = st.text_input("Idioma / Language", value="Castellano")
     t = traducir_interfaz(idioma_txt)
 
-# --- BLOQUE CSS (DISEÑO SLIDER SIN ROJO) ---
+# --- TÍTULO PRINCIPAL CON NOMBRE COMPLETO ---
+st.markdown(f"""
+    <div style="text-align: center; margin-top: 10px; margin-bottom: 30px;">
+        <h2 style="color: #00549F; font-family: sans-serif; margin-bottom: 0px; font-weight: 800;">
+            SWARCO TRAFFIC SPAIN
+        </h2>
+        <h3 style="color: #666; font-family: sans-serif; margin-top: 5px; border-bottom: 2px solid #F29400; display: inline-block; padding-bottom: 10px;">
+            {t.get('titulo_portal', 'Portal de Reporte Técnico SAT')}
+        </h3>
+    </div>
+""", unsafe_allow_html=True)
+
+# --- BLOQUE CSS (ELIMINACIÓN DE ROJO) ---
 st.markdown("""
     <style>
     .stSlider > div [data-baseweb="slider"] {
@@ -91,14 +103,14 @@ archivos = st.file_uploader("", accept_multiple_files=True, type=['png', 'jpg', 
 if 'lista_equipos' not in st.session_state:
     st.session_state.lista_equipos = []
 
-# --- NOTA EXPLICATIVA PARA EL CLIENTE ---
+# --- NOTA EXPLICATIVA ---
 st.markdown("---")
 st.markdown(f"""
-    <div style="background-color: #f0f8ff; padding: 15px; border-radius: 10px; border-left: 5px solid #00549F; margin-bottom: 20px;">
-        <p style="color: #00549F; font-weight: bold; margin-bottom: 5px;">💡 {t.get('instruccion_final', '¿Cómo proceder?')}</p>
+    <div style="background-color: #f0f8ff; padding: 15px; border-radius: 10px; border-left: 5px solid #00549F;">
+        <p style="color: #00549F; font-weight: bold; margin-bottom: 5px;">💡 {t.get('instruccion_final', '¿Cómo enviar su reporte?')}</p>
         <p style="font-size: 14px; color: #333;">
-            • Use <b>"{t['btn_agregar']}"</b> si desea reportar más de un equipo en este mismo ticket.<br>
-            • Use <b>"{t['btn_generar']}"</b> directamente si solo va a reportar este equipo o si ya terminó su lista.
+            1. Use el botón <b>"+"</b> para añadir equipos a su lista si tiene varios.<br>
+            2. Use el botón <b>"Generar Ticket"</b> para enviar el reporte final (sea uno o varios).
         </p>
     </div>
 """, unsafe_allow_html=True)
@@ -111,7 +123,7 @@ with col_btn1:
             st.session_state.lista_equipos.append({"ns": ns_in, "ref": ref_in, "urgencia": urg_val, "desc": falla_in})
             st.rerun()
         else:
-            st.warning("⚠️ Complete N.S. y descripción antes de agregar.")
+            st.warning("⚠️ Complete los datos del equipo antes de agregarlo.")
 
 with col_btn2:
     if st.button(f"🚀 {t['btn_generar']}", type="primary", use_container_width=True):
@@ -126,13 +138,13 @@ with col_btn2:
                 st.balloons()
                 st.session_state.lista_equipos = []
         else:
-            st.error("⚠️ Falta información crítica para enviar el ticket.")
+            st.error("⚠️ Error: Falta información crítica (Empresa, Email o datos del equipo).")
 
 # TABLA DE RESUMEN
 if st.session_state.lista_equipos:
-    st.subheader("📋 Resumen actual")
+    st.subheader("📋 Equipos registrados")
     st.table(pd.DataFrame(st.session_state.lista_equipos))
-    if st.button("🗑️ Limpiar Lista"):
+    if st.button("🗑️ Vaciar Lista"):
         st.session_state.lista_equipos = []
         st.rerun()
 
@@ -141,4 +153,4 @@ st.markdown("---")
 if st.button(f"🚪 {t['btn_salir']}", use_container_width=True):
     st.warning(t['salir_aviso'])
 
-st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2024 SWARCO TRAFFIC SPAIN</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2024 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
