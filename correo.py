@@ -5,81 +5,47 @@ from datetime import datetime
 import streamlit as st
 
 def enviar_email_outlook(empresa, contacto, proyecto, lista_equipos, email_usr, ticket_id, telefono):
-    # Datos de los Secrets
     try:
-        remitente = st.secrets["email_user"] 
-        password = st.secrets["email_password"] 
-    except KeyError:
-        st.error("❌ Falta configurar los Secrets en Streamlit.")
+        remitente = st.secrets["email_user"]
+        password = st.secrets["email_password"]
+    except:
+        st.error("❌ Error: Configure 'email_user' y 'email_password' en los Secrets.")
         return False
 
-    # Configuración específica para GMAIL
-    servidor_smtp = "smtp.gmail.com"
-    puerto = 587
+    msg = MIMEMultipart()
+    msg['From'] = remitente
+    msg['To'] = remitente
+    msg['Cc'] = "sfr.support@swarco.com"
+    msg['Subject'] = f"NUEVO TICKET SAT: {ticket_id} - {empresa}"
 
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = remitente
-        msg['To'] = remitente # Te llega a ti el aviso
-        msg['Cc'] = "sfr.support@swarco.com"
-        msg['Cco'] = "aitor.badiola@swarco.com"
-        msg['Subject'] = f"NUEVO TICKET SAT: {ticket_id} - {empresa}"
+    filas = ""
+    for i, eq in enumerate(lista_equipos):
+        bg = "#ffffff" if i % 2 == 0 else "#f9f9f9"
+        filas += f"<tr style='background:{bg};'><td>{i+1}</td><td><b>{eq['ns']}</b></td><td>{eq['ref']}</td><td>{eq['urgencia']}</td><td>{eq['desc']}</td></tr>"
 
-        fecha_envio = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        
-        # Tabla con marcos reforzados
-        filas_html = ""
-        for i, eq in enumerate(lista_equipos):
-            bg = "#ffffff" if i % 2 == 0 else "#f9f9f9"
-            filas_html += f"""
-            <tr style="background-color: {bg}; border: 1px solid #cccccc;">
-                <td style="padding: 10px; border: 1px solid #cccccc; text-align: center;">{i+1}</td>
-                <td style="padding: 10px; border: 1px solid #cccccc;"><b>{eq['ns']}</b></td>
-                <td style="padding: 10px; border: 1px solid #cccccc;">{eq['ref']}</td>
-                <td style="padding: 10px; border: 1px solid #cccccc;">{eq['urgencia']}</td>
-                <td style="padding: 10px; border: 1px solid #cccccc;">{eq['desc']}</td>
-            </tr>"""
-
-        cuerpo_html = f"""
-        <html><body style="font-family: Arial, sans-serif;">
-            <div style="border: 2px solid #00549F; max-width: 850px; margin: auto; border-radius: 8px; overflow: hidden;">
-                <div style="background: #00549F; color: white; padding: 20px; text-align: center;">
-                    <h1 style="margin:0; font-size: 24px;">SWARCO SUPPORT SPAIN</h1>
-                </div>
-                <div style="padding: 20px;">
-                    <p style="font-size: 16px;"><b>Ticket ID:</b> <span style="color: #009FE3;">{ticket_id}</span></p>
-                    <p><b>Fecha de Reporte:</b> {fecha_envio}</p>
-                    <hr style="border: 0; border-top: 1px solid #eee;">
-                    <p><b>Empresa:</b> {empresa} | <b>Contacto:</b> {contacto} | <b>Tel:</b> {telefono}</p>
-                    <p><b>Email Cliente:</b> {email_usr}</p>
-                    
-                    <h3 style="color: #00549F;">Relación de Equipos:</h3>
-                    <table style="width: 100%; border-collapse: collapse; border: 1px solid #cccccc;">
-                        <tr style="background: #009FE3; color: white;">
-                            <th style="padding: 10px; border: 1px solid #cccccc;">#</th>
-                            <th style="padding: 10px; border: 1px solid #cccccc;">N.S / Serial</th>
-                            <th style="padding: 10px; border: 1px solid #cccccc;">REF / Part Number</th>
-                            <th style="padding: 10px; border: 1px solid #cccccc;">Urgencia</th>
-                            <th style="padding: 10px; border: 1px solid #cccccc;">Falla Detectada</th>
-                        </tr>
-                        {filas_html}
-                    </table>
-                </div>
-                <div style="background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #777;">
-                    Este es un mensaje automático generado por el Portal SAT de SWARCO.
-                </div>
+    cuerpo_html = f"""
+    <html><body style='font-family: Arial;'>
+        <div style='border: 2px solid #00549F; max-width: 800px; margin: auto;'>
+            <div style='background:#00549F; color:white; padding:20px; text-align:center;'><h2>SWARCO SUPPORT SPAIN</h2></div>
+            <div style='padding:20px;'>
+                <p><b>Ticket ID:</b> {ticket_id} | <b>Empresa:</b> {empresa}</p>
+                <p><b>Contacto:</b> {contacto} | <b>Tel:</b> {telefono}</p>
+                <table border='1' style='width:100%; border-collapse:collapse;'>
+                    <tr style='background:#009FE3; color:white;'><th>#</th><th>S/N</th><th>REF</th><th>Urgencia</th><th>Falla</th></tr>
+                    {filas}
+                </table>
             </div>
-        </body></html>"""
-        
-        msg.attach(MIMEText(cuerpo_html, 'html'))
-
-        # Conexión Segura con Gmail
-        server = smtplib.SMTP(servidor_smtp, puerto)
+        </div>
+    </body></html>"""
+    
+    msg.attach(MIMEText(cuerpo_html, 'html'))
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
         server.login(remitente, password)
         server.send_message(msg)
         server.quit()
         return True
     except Exception as e:
-        st.error(f"❌ Error de Gmail: {e}")
+        st.error(f"Error envío: {e}")
         return False

@@ -3,15 +3,15 @@ import streamlit as st
 def cargar_estilos():
     st.markdown("""
         <style>
-        /* 1. BAJAMOS EL CONTENIDO PARA QUE EL LOGO NO SE CORTE */
+        /* Ajuste para que el encabezado no se corte */
         .block-container {
             padding-top: 3.5rem !important; 
             max-width: 850px !important;
         }
         
-        /* 2. TÍTULOS CON EL NARANJA SWARCO (#F29400) */
+        /* Títulos de sección con línea naranja Swarco */
         .section-header {
-            border-bottom: 3px solid #F29400; /* La línea naranja de su web */
+            border-bottom: 3px solid #F29400;
             color: #00549F;
             font-weight: 700;
             font-size: 1.1rem;
@@ -20,19 +20,20 @@ def cargar_estilos():
             text-transform: uppercase;
         }
 
-        /* 3. BOTÓN PRINCIPAL NARANJA (Igual a los de swarco.com) */
+        /* Botón principal en Naranja Swarco */
         div.stButton > button:first-child {
             background-color: #F29400 !important;
             color: white !important;
             border: none !important;
-            border-radius: 2px !important; /* Bordes más rectos, más serios */
+            border-radius: 2px !important;
             font-weight: bold !important;
             padding: 0.6rem 2rem !important;
+            width: 100%;
         }
 
-        /* 4. AJUSTE DEL LOGO Y HEADER */
+        /* Encabezado transparente */
         [data-testid="stHeader"] {
-            background: rgba(0,0,0,0); /* Hace la barra de arriba transparente */
+            background: rgba(0,0,0,0);
         }
         </style>
     """, unsafe_allow_html=True)
