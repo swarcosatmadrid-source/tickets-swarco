@@ -15,7 +15,7 @@ from streamlit_gsheets import GSheetsConnection
 
 # Importaciones locales (tus archivos)
 try:
-    from estilos import cargar_estilos
+    from estilos import cargar_estilos_swarco
     from correo import enviar_email_outlook
     from idiomas import textos
 except ImportError as e:
