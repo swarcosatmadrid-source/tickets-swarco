@@ -1,6 +1,8 @@
 from deep_translator import GoogleTranslator
+from deep_translator import GoogleTranslator
 
-def traducir_interfaz(idioma_sel):
+def traducir_interfaz(idioma_destino_codigo):
+    # Nuestra base de datos de textos en Español (La Fuente)
     textos_base = {
         "titulo": "SAT SWARCO TRAFFIC SPAIN",
         "sub": "Portal de Soporte Técnico",
@@ -24,16 +26,19 @@ def traducir_interfaz(idioma_sel):
         "btn_agregar": "➕ AGREGAR AL TICKET"
     }
 
-    mapeo = {
-        "Castellano": "es", "English": "en", "Deutsch": "de", 
-        "Français": "fr", "Català": "ca", "Euskara": "eu", "Galego": "gl"
-    }
-    
-    target = mapeo.get(idioma_sel, "es")
-    if target == "es": return textos_base
+    # Si es español, no gastamos recursos traduciendo
+    if idioma_destino_codigo == "es":
+        return textos_base
 
     try:
-        translator = GoogleTranslator(source='es', target=target)
-        return {k: (v if k in ["titulo", "fotos"] else translator.translate(v)) for k, v in textos_base.items()}
-    except:
+        # Traducimos todo el diccionario al idioma que el usuario eligió
+        translator = GoogleTranslator(source='es', target=idioma_destino_codigo)
+        textos_traducidos = {}
+        for clave, valor in textos_base.items():
+            if clave in ["titulo", "fotos"]: # Mantener marca e iconos
+                textos_traducidos[clave] = valor
+            else:
+                textos_traducidos[clave] = translator.translate(valor)
+        return textos_traducidos
+    except Exception:
         return textos_base
