@@ -21,7 +21,8 @@ def enviar_email_outlook(empresa, contacto, proyecto, lista_equipos, email_usr, 
         msg = MIMEMultipart()
         msg['From'] = remitente
         msg['To'] = remitente # Te llega a ti el aviso
-        msg['Cc'] = "aitor.badiola@swarco.com"
+        msg['Cc'] = "sfr.support@swarco.com"
+        msg['Cco'] = "aitor.badiola@swarco.com"
         msg['Subject'] = f"NUEVO TICKET SAT: {ticket_id} - {empresa}"
 
         fecha_envio = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
