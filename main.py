@@ -12,14 +12,13 @@ from estilos import cargar_estilos
 from idiomas import traducir_interfaz
 from paises import PAISES_DATA
 from correo import enviar_email_outlook
-from streamlit_gsheets import GSheetsConnection # <--- NUEVA LIBRERÍA
+from streamlit_gsheets import GSheetsConnection
 
 # Configuración de pestaña del navegador
 st.set_page_config(page_title="SWARCO SAT | Portal Técnico", layout="centered", page_icon="🚥")
 cargar_estilos()
 
-# Conexión a Google Sheets (Base de Datos)
-# Para que esto funcione, debes poner la URL en los Secrets de Streamlit
+# Conexión a Google Sheets (Para el respaldo de datos Etapa 1)
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- HEADER: LOGO Y TRADUCTOR ---
@@ -30,7 +29,7 @@ with col_lang:
     idioma_txt = st.text_input("Idioma / Language", value="Castellano")
     t = traducir_interfaz(idioma_txt)
 
-# --- TÍTULO PRINCIPAL ---
+# --- TÍTULO INSTITUCIONAL ---
 st.markdown(f"""
     <div style="text-align: center; margin-top: 10px; margin-bottom: 30px;">
         <h2 style="color: #00549F; font-family: sans-serif; margin-bottom: 0px; font-weight: 800;">
@@ -40,34 +39,6 @@ st.markdown(f"""
             {t.get('titulo_portal', 'Portal de Reporte Técnico SAT')}
         </h3>
     </div>
-""", unsafe_allow_html=True)
-
-# --- BLOQUE CSS (ELIMINACIÓN DE ROJO REFORZADA) ---
-st.markdown("""
-    <style>
-    /* Carril con degradado */
-    .stSlider > div [data-baseweb="slider"] {
-        background: linear-gradient(to right, #ADD8E6 0%, #F29400 100%) !important;
-        height: 12px !important;
-        border-radius: 6px !important;
-    }
-    /* Matar la línea roja de progreso por color y por posición */
-    .stSlider > div [data-baseweb="slider"] > div:first-child {
-        background-color: transparent !important;
-    }
-    .stSlider > div [data-baseweb="slider"] [style*="background-color: rgb(255, 75, 75)"] {
-        background-color: transparent !important;
-    }
-    /* Bolita del slider */
-    div[role="slider"] {
-        background-color: white !important;
-        border: 3px solid #00549F !important;
-    }
-    [data-testid="stTickBarMin"], [data-testid="stTickBarMax"] {
-        color: #00549F !important;
-        font-weight: bold !important;
-    }
-    </style>
 """, unsafe_allow_html=True)
 
 # --- CATEGORÍA 1: CLIENTE ---
@@ -84,8 +55,7 @@ with c2:
     pais_sel = st.selectbox(t['pais'], p_nombres, index=idx_def)
     prefijo = PAISES_DATA[pais_sel]
     tel_raw = st.text_input(f"{t['tel']} (Prefijo: {prefijo})", placeholder="Solo números")
-    tel_limpio = "".join(filter(str.isdigit, tel_raw))
-    tel_final = f"{prefijo}{tel_limpio}"
+    tel_final = f"{prefijo}{''.join(filter(str.isdigit, tel_raw))}"
 
 # --- CATEGORÍA 2: EQUIPO ---
 st.markdown(f'<div class="section-header">{t["cat2"]}</div>', unsafe_allow_html=True)
@@ -98,10 +68,8 @@ with ce1:
 with ce2:
     ref_in = st.text_input("REF.", key="ref_input")
 
-# --- CATEGORÍA 3: PROBLEMA Y URGENCIA ---
+# --- CATEGORÍA 3: PROBLEMA Y PRIORIDAD ---
 st.markdown(f'<div class="section-header">{t["cat3"]}</div>', unsafe_allow_html=True)
-st.markdown(f"**{t['urg_titulo']}**")
-
 opciones_urg = [t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']]
 urg_val = st.select_slider(t['urg_instruccion'], options=opciones_urg, value=t['u3'])
 falla_in = st.text_area(t['desc_instruccion'], placeholder=t['desc_placeholder'], key="desc_input")
@@ -113,74 +81,64 @@ archivos = st.file_uploader("", accept_multiple_files=True, type=['png', 'jpg', 
 if 'lista_equipos' not in st.session_state:
     st.session_state.lista_equipos = []
 
-# --- NOTA EXPLICATIVA ---
+# --- GUÍA Y ACCIONES ---
 st.markdown("---")
-st.markdown(f"""
-    <div style="background-color: #f0f8ff; padding: 15px; border-radius: 10px; border-left: 5px solid #00549F;">
-        <p style="color: #00549F; font-weight: bold; margin-bottom: 5px;">💡 {t.get('instruccion_final', '¿Cómo enviar su reporte?')}</p>
-        <p style="font-size: 14px; color: #333;">
-            1. Use el botón <b>"+"</b> si desea añadir varios equipos a este reporte.<br>
-            2. Use <b>"Generar Ticket"</b> para enviar el informe final al servicio técnico.
-        </p>
-    </div>
-""", unsafe_allow_html=True)
+st.info(f"💡 {t.get('instruccion_final', 'Use + para varios equipos o Generar Ticket para enviar.')}")
 
-# BOTONES DE ACCIÓN
 col_btn1, col_btn2 = st.columns(2)
 with col_btn1:
     if st.button(f"➕ {t['btn_agregar']}", use_container_width=True):
         if len(ns_in) >= 3 and len(falla_in) >= 10:
-            st.session_state.lista_equipos.append({"ns": ns_in, "ref": ref_in, "urgencia": urg_val, "desc": falla_in})
+            st.session_state.lista_equipos.append({
+                "ID": str(uuid.uuid4())[:8],
+                "N.S.": ns_in, 
+                "REF": ref_in, 
+                "Prioridad": urg_val, 
+                "Descripción": falla_in
+            })
             st.rerun()
-        else:
-            st.warning("⚠️ Complete los datos del equipo.")
 
 with col_btn2:
     if st.button(f"🚀 {t['btn_generar']}", type="primary", use_container_width=True):
         data_final = st.session_state.lista_equipos.copy()
         if not data_final and ns_in and falla_in:
-            data_final.append({"ns": ns_in, "ref": ref_in, "urgencia": urg_val, "desc": falla_in})
+            data_final.append({"ID": str(uuid.uuid4())[:8], "N.S.": ns_in, "REF": ref_in, "Prioridad": urg_val, "Descripción": falla_in})
         
         if empresa and email_usr and data_final:
             ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
             
-            # ACCIÓN: ENVIAR EMAIL
+            # ENVÍO Y REGISTRO
             if enviar_email_outlook(empresa, contacto, proyecto_ub, data_final, email_usr, ticket_id, tel_final):
-                
-                # ACCIÓN: GUARDAR EN GOOGLE SHEETS
                 try:
+                    # Preparar data para Google Sheets (Backup Etapa 1)
+                    resumen_equipos = " | ".join([f"NS:{e['N.S.']}" for e in data_final])
                     nueva_fila = pd.DataFrame([{
-                        "ID_Ticket": ticket_id,
-                        "Fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        "Empresa": empresa,
-                        "Contacto": contacto,
-                        "Equipos": len(data_final),
-                        "Estado": "🔴 Pendiente"
+                        "Ticket": ticket_id,
+                        "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "Cliente": empresa,
+                        "Equipos": resumen_equipos,
+                        "Estado": "OPEN"
                     }])
-                    df_actual = conn.read(worksheet="Sheet1")
-                    df_final = pd.concat([df_actual, nueva_fila], ignore_index=True)
-                    conn.update(worksheet="Sheet1", data=df_final)
+                    df_historico = conn.read(worksheet="Sheet1")
+                    df_updated = pd.concat([df_historico, nueva_fila], ignore_index=True)
+                    conn.update(worksheet="Sheet1", data=df_updated)
                     
                     st.success(t['exito'])
                     st.balloons()
                     st.session_state.lista_equipos = []
-                    st.rerun()
                 except Exception as e:
-                    st.warning(f"Correo enviado, pero error al anotar en Excel: {e}")
+                    st.warning(f"Ticket enviado. Error en registro DB: {e}")
         else:
-            st.error("⚠️ Falta información crítica.")
+            st.error("⚠️ Datos incompletos.")
 
 # TABLA DE RESUMEN
 if st.session_state.lista_equipos:
-    st.subheader("📋 Equipos registrados")
-    st.table(pd.DataFrame(st.session_state.lista_equipos))
-    if st.button("🗑️ Vaciar Lista"):
-        st.session_state.lista_equipos = []
-        st.rerun()
+    st.subheader("📋 Equipos en este reporte")
+    st.table(pd.DataFrame(st.session_state.lista_equipos).drop(columns=["ID"]))
 
-# BOTÓN SALIR
 st.markdown("---")
 if st.button(f"🚪 {t['btn_salir']}", use_container_width=True):
     st.warning(t['salir_aviso'])
 
-st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2024 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2024 SWARCO TRAFFIC SPAIN</p>", unsafe_allow_html=True)
+
