@@ -19,7 +19,7 @@ from usuarios import gestionar_acceso
 st.set_page_config(page_title="SWARCO SAT | Portal Técnico", layout="centered", page_icon="🚥")
 cargar_estilos()
 
-# Conexión única para todo el flujo
+# Conexión única
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- CAPA DE SEGURIDAD (LOGIN) ---
@@ -109,7 +109,7 @@ if gestionar_acceso(conn):
     if 'lista_equipos' not in st.session_state:
         st.session_state.lista_equipos = []
 
-    # --- LÓGICA DE BOTÓN DINÁMICO ---
+    # --- LÓGICA DINÁMICA DE BOTONES ---
     texto_boton_agregar = "➕ Registrar Dispositivo" if not st.session_state.lista_equipos else f"➕ {t['btn_agregar']}"
 
     # --- NOTA EXPLICATIVA ---
@@ -130,8 +130,12 @@ if gestionar_acceso(conn):
     with col_btn1:
         if st.button(texto_boton_agregar, use_container_width=True):
             if len(ns_in) >= 3 and len(falla_in) >= 10:
+                # GUARDADO CON NOMBRES CORRECTOS PARA LA TABLA
                 st.session_state.lista_equipos.append({
-                    "N.S.": ns_in, "REF": ref_in, "Prioridad": urg_val, "Descripción": falla_in
+                    "N.S.": ns_in, 
+                    "REF": ref_in, 
+                    "Prioridad": urg_val, 
+                    "Descripción": falla_in
                 })
                 st.rerun()
             else:
@@ -147,24 +151,31 @@ if gestionar_acceso(conn):
                 if proyecto_ub:
                     ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
                     try:
-                        # Buscamos la urgencia máxima de la lista para tu nueva columna
+                        # 1. Preparación de datos para Google Sheets
                         u_max = st.session_state.lista_equipos[-1]['Prioridad']
-                        resumen_ns = " | ".join([e['N.S.'] for e in st.session_state.lista_equipos])
+                        resumen_equipos = " | ".join([f"SN:{e['N.S.']} (Ref:{e['REF']})" for e in st.session_state.lista_equipos])
                         
-                        nueva_fila = pd.DataFrame([{
-                            "Ticket_ID": ticket_id, 
-                            "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                            "Cliente": empresa, "Ubicacion": proyecto_ub, 
-                            "Equipos": resumen_ns, 
-                            "Urgencia Max": u_max, # <--- MAPEO CORRECTO PARA TU EXCEL
+                        datos_a_enviar = {
+                            "Ticket_ID": str(ticket_id),
+                            "Fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                            "Cliente": str(empresa),
+                            "Ubicacion": str(proyecto_ub),
+                            "Equipos": str(resumen_equipos),
+                            "Urgencia Max": str(u_max),
                             "Estado": "OPEN"
-                        }])
+                        }
                         
+                        # 2. Convertir y limpiar
+                        nueva_fila = pd.DataFrame([datos_a_enviar])
                         df_h = conn.read(worksheet="Sheet1", ttl=0)
+                        df_h = df_h.dropna(axis=1, how='all')
+                        
+                        # 3. Actualizar Google Sheets
                         conn.update(worksheet="Sheet1", data=pd.concat([df_h, nueva_fila], ignore_index=True))
                         
+                        # 4. Envío de Email
                         if enviar_email_outlook(empresa, contacto, proyecto_ub, st.session_state.lista_equipos, email_usr, ticket_id, tel_final):
-                            st.success("✅ ¡Reporte enviado! Ticket generado correctamente.")
+                            st.success("✅ ¡Reporte enviado y registrado!")
                             st.balloons()
                             st.session_state.lista_equipos = []
                             st.rerun()
