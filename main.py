@@ -17,23 +17,21 @@ try:
     from paises import PAISES_DATA
     from correo import enviar_email_outlook
     from streamlit_gsheets import GSheetsConnection
-    from usuarios import gestionar_acceso # El único cambio: importar el acceso
+    from usuarios import gestionar_acceso
     
     cargar_estilos()
     conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
-    st.error(f"Error: {e}")
+    st.error(f"Error de sistema: {e}")
     st.stop()
 
 # --- 3. CAPA DE SEGURIDAD (Login/Registro) ---
-# Aquí es donde se valida el usuario antes de mostrar lo de ayer
 if gestionar_acceso(conn):
     
-    # Datos del usuario que acaba de entrar
     d_cli = st.session_state.datos_cliente
     t = traducir_interfaz("Castellano")
 
-    # BARRA LATERAL (Como la tenías)
+    # BARRA LATERAL
     with st.sidebar:
         st.image("logo.png", use_container_width=True)
         st.markdown(f"### 👤 {d_cli.get('Contacto', 'Usuario')}")
@@ -43,7 +41,7 @@ if gestionar_acceso(conn):
             st.session_state.autenticado = False
             st.rerun()
 
-    # TÍTULOS ORIGINALES
+    # TÍTULOS PRINCIPALES
     st.markdown(f"""
         <div style="text-align: center; margin-bottom: 30px;">
             <h2 style="color: #00549F; font-weight: 800;">SWARCO TRAFFIC SPAIN</h2>
@@ -51,11 +49,10 @@ if gestionar_acceso(conn):
         </div>
     """, unsafe_allow_html=True)
 
-    # --- SECCIÓN 1: DATOS DEL REPORTE (Auto-rellenados) ---
+    # --- SECCIÓN 1: DATOS DEL REPORTE ---
     st.markdown('<div class="section-header">DATOS DEL REPORTE</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
-        # Aquí usamos los datos del login para rellenar
         st.text_input("Empresa", value=d_cli.get('Empresa', ''), disabled=True)
         proyecto_ub = st.text_input("Proyecto / Ubicación exacta", placeholder="Ej: Túnel de la Castellana")
     with c2:
@@ -68,10 +65,7 @@ if gestionar_acceso(conn):
     # --- SECCIÓN 2: DETALLES DEL EQUIPO ---
     st.markdown('<div class="section-header">DETALLES DEL EQUIPO</div>', unsafe_allow_html=True)
     
-    # TU NOTA DE LA PEGATINA DE AYER
     st.info("Localice la pegatina plateada en el chasis del equipo para obtener el N.S. y la Referencia.")
-    
-    [Image of an industrial equipment identification plate with serial number and reference]
 
     ce1, ce2 = st.columns(2)
     with ce1:
@@ -82,7 +76,6 @@ if gestionar_acceso(conn):
     # --- SECCIÓN 3: DESCRIPCIÓN DE LA AVERÍA ---
     st.markdown('<div class="section-header">DESCRIPCIÓN DE LA AVERÍA</div>', unsafe_allow_html=True)
     
-    # TU SELECTOR DE PRIORIDAD DE AYER
     opciones_urg = [t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']]
     urg_val = st.select_slider("Prioridad del reporte", options=opciones_urg, value=t['u3'])
     
@@ -150,12 +143,10 @@ if gestionar_acceso(conn):
             else:
                 st.error("⚠️ Falta ubicación o datos del equipo.")
 
-    # TABLA DE RESUMEN (Como la tenías)
+    # TABLA DE RESUMEN
     if st.session_state.lista_equipos:
         st.subheader("📋 Equipos en el reporte actual")
         st.table(pd.DataFrame(st.session_state.lista_equipos).drop(columns=["ID"]))
 
-    st.markdown("<p style='text-align:center; color:#999; margin-top:50px;'>© 2024 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
-
-
+    st.markdown("<p style='text-align:center; color:#999; margin-top:50px;'>© 2026 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
 
