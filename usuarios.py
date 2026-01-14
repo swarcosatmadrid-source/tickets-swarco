@@ -40,7 +40,7 @@ def gestionar_acceso(conn):
             if st.button("Crear Cuenta Ahora", use_container_width=True):
                 if r_u and r_p and r_e and r_m:
                     # --- AQUÍ PEGA TU URL DE APPS SCRIPT ---
-                    URL_BRIDGE = "https://script.google.com/macros/s/TU_ID_AQUÍ/exec"
+                    URL_BRIDGE = "https://script.google.com/macros/s/AKfycbyDpHS4nU16O7YyvABvmbFYHTLv2e2J8vrpSD-iCmamjmS4Az6p9iZNUmVEwzMVyzx9/exec"
                     
                     payload = {
                         "Usuario": r_u,
