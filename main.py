@@ -134,6 +134,4 @@ if gestionar_acceso(conn):
         st.table(pd.DataFrame(st.session_state.lista_equipos).drop(columns=["ID"]))
 
     st.markdown("<p style='text-align:center; color:#999; margin-top:50px;'>© 2024 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
-    return True
-
 
