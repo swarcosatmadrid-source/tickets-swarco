@@ -5,7 +5,7 @@ from datetime import datetime
 import os
 import sys
 
-# 1. SEGURIDAD DE RUTAS Y CONFIGURACIÓN
+# 1. CONFIGURACIÓN Y RUTAS
 sys.path.append(os.path.dirname(__file__))
 
 from estilos import cargar_estilos
@@ -15,11 +15,11 @@ from correo import enviar_email_outlook
 from streamlit_gsheets import GSheetsConnection
 from usuarios import gestionar_acceso
 
-# Configuración de pestaña del navegador
+# Configuración de pestaña
 st.set_page_config(page_title="SWARCO SAT | Portal Técnico", layout="centered", page_icon="🚥")
 cargar_estilos()
 
-# Conexión para el Login y Registro en Sheets
+# Conexión única para todo el flujo
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- CAPA DE SEGURIDAD (LOGIN) ---
@@ -47,7 +47,7 @@ if gestionar_acceso(conn):
         </div>
     """, unsafe_allow_html=True)
 
-    # --- BLOQUE CSS (DISEÑO DEL SLIDER) ---
+    # --- BLOQUE CSS (ELIMINACIÓN DE ROJO EN SLIDER) ---
     st.markdown("""
         <style>
         .stSlider > div [data-baseweb="slider"] {
@@ -77,9 +77,8 @@ if gestionar_acceso(conn):
         idx_def = p_nombres.index("Spain") if "Spain" in p_nombres else 0
         pais_sel = st.selectbox(t['pais'], p_nombres, index=idx_def)
         prefijo = PAISES_DATA[pais_sel]
-        tel_raw = st.text_input(f"{t['tel']} (Prefijo: {prefijo})", placeholder="Solo números")
-        tel_limpio = "".join(filter(str.isdigit, tel_raw))
-        tel_final = f"{prefijo}{tel_limpio}"
+        tel_raw = st.text_input(f"{t['tel']} (Prefijo: {prefijo})")
+        tel_final = f"{prefijo}{''.join(filter(str.isdigit, tel_raw))}"
 
     # --- CATEGORÍA 2: EQUIPO ---
     st.markdown(f'<div class="section-header">{t["cat2"]}</div>', unsafe_allow_html=True)
@@ -104,24 +103,20 @@ if gestionar_acceso(conn):
 
     falla_in = st.text_area(t['desc_instruccion'], placeholder=t['desc_placeholder'], key="desc_input")
 
-    # MULTIMEDIA
-    st.markdown(f"**{t['fotos']}**")
-    archivos = st.file_uploader("", accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'mp4'], label_visibility="collapsed")
+    # Multimedia
+    archivos = st.file_uploader(t['fotos'], accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'mp4'])
 
     if 'lista_equipos' not in st.session_state:
         st.session_state.lista_equipos = []
 
-    # --- LÓGICA DINÁMICA DE BOTONES ---
-    if not st.session_state.lista_equipos:
-        texto_boton_agregar = "➕ Registrar Dispositivo"
-    else:
-        texto_boton_agregar = f"➕ {t['btn_agregar']}"
+    # --- LÓGICA DE BOTÓN DINÁMICO ---
+    texto_boton_agregar = "➕ Registrar Dispositivo" if not st.session_state.lista_equipos else f"➕ {t['btn_agregar']}"
 
     # --- NOTA EXPLICATIVA ---
     st.markdown("---")
     st.markdown(f"""
         <div style="background-color: #f0f8ff; padding: 15px; border-radius: 10px; border-left: 5px solid #00549F;">
-            <p style="color: #00549F; font-weight: bold; margin-bottom: 5px;">💡 {t.get('instruccion_final', '¿Cómo procesar su solicitud?')}</p>
+            <p style="color: #00549F; font-weight: bold; margin-bottom: 5px;">💡 ¿Cómo procesar su solicitud?</p>
             <p style="font-size: 14px; color: #333;">
                 1. Complete los datos técnicos y pulse <b>"{texto_boton_agregar}"</b> para incluirlo en el reporte.<br>
                 2. Verifique en la <b>tabla inferior</b> que la información registrada es correcta.<br>
@@ -136,16 +131,13 @@ if gestionar_acceso(conn):
         if st.button(texto_boton_agregar, use_container_width=True):
             if len(ns_in) >= 3 and len(falla_in) >= 10:
                 st.session_state.lista_equipos.append({
-                    "N.S.": ns_in, 
-                    "REF": ref_in, 
-                    "Prioridad": urg_val, 
-                    "Descripción": falla_in
+                    "N.S.": ns_in, "REF": ref_in, "Prioridad": urg_val, "Descripción": falla_in
                 })
                 st.rerun()
             else:
-                st.warning("⚠️ Por favor, complete los datos del equipo antes de registrarlo.")
+                st.warning("⚠️ Complete N.S. y Descripción antes de registrar.")
 
-    # TABLA DE RESUMEN Y ENVÍO (Solo si hay equipos)
+    # TABLA Y ENVÍO (Solo si hay equipos)
     if st.session_state.lista_equipos:
         st.markdown("### 📋 Equipos registrados en esta solicitud")
         st.table(pd.DataFrame(st.session_state.lista_equipos))
@@ -155,38 +147,44 @@ if gestionar_acceso(conn):
                 if proyecto_ub:
                     ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
                     try:
-                        # Registro en GSheets
+                        # Buscamos la urgencia máxima de la lista para tu nueva columna
+                        u_max = st.session_state.lista_equipos[-1]['Prioridad']
                         resumen_ns = " | ".join([e['N.S.'] for e in st.session_state.lista_equipos])
+                        
                         nueva_fila = pd.DataFrame([{
                             "Ticket_ID": ticket_id, 
                             "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
                             "Cliente": empresa, "Ubicacion": proyecto_ub, 
-                            "Equipos": resumen_ns, "Estado": "OPEN"
+                            "Equipos": resumen_ns, 
+                            "Urgencia Max": u_max, # <--- MAPEO CORRECTO PARA TU EXCEL
+                            "Estado": "OPEN"
                         }])
+                        
                         df_h = conn.read(worksheet="Sheet1", ttl=0)
                         conn.update(worksheet="Sheet1", data=pd.concat([df_h, nueva_fila], ignore_index=True))
                         
                         if enviar_email_outlook(empresa, contacto, proyecto_ub, st.session_state.lista_equipos, email_usr, ticket_id, tel_final):
-                            st.success("✅ ¡Reporte enviado correctamente! Se ha generado su ticket.")
+                            st.success("✅ ¡Reporte enviado! Ticket generado correctamente.")
                             st.balloons()
                             st.session_state.lista_equipos = []
                             st.rerun()
                     except Exception as e:
                         st.error(f"Error al registrar: {e}")
                 else:
-                    st.error("⚠️ Por favor, indique la Ubicación/Proyecto.")
+                    st.error("⚠️ Por favor, indique la ubicación del proyecto.")
         
-        if st.button("🗑️ Vaciar Lista / Reiniciar"):
+        if st.button("🗑️ Vaciar Lista"):
             st.session_state.lista_equipos = []
             st.rerun()
     else:
         with col_btn2:
-            st.button(f"🚀 {t['btn_generar']}", type="primary", use_container_width=True, disabled=True, help="Añada un equipo primero")
+            st.button(f"🚀 {t['btn_generar']}", type="primary", use_container_width=True, disabled=True)
 
-    # BOTÓN SALIR
+    # SALIR
     st.markdown("---")
     if st.button(f"🚪 {t['btn_salir']}", use_container_width=True):
         st.session_state.autenticado = False
         st.rerun()
 
-    st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2026 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2026 SWARCO TRAFFIC SPAIN</p>", unsafe_allow_html=True)
+
