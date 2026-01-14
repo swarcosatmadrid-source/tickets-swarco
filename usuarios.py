@@ -53,7 +53,7 @@ def gestionar_acceso(conn):
                     try:
                         # ESCRIBIR mediante el puente de Google Apps Script
                         response = requests.post(URL_BRIDGE, data=json.dumps(payload))
-                        if "Exito" in response.text:
+                        if "Éxito" in response.text:
                             st.success("✅ Registro exitoso. ¡Ya puedes iniciar sesión!")
                         else:
                             st.error(f"Error del servidor: {response.text}")
