@@ -1,51 +1,98 @@
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime
 import streamlit as st
 
-def enviar_email_outlook(empresa, contacto, proyecto, lista_equipos, email_usr, ticket_id, telefono):
+def enviar_email_outlook(empresa, contacto, proyecto, lista_equipos, email_usuario, ticket_id, telefono):
+    # Configuración del servidor (Asegúrate de tener estos secretos en tu .toml)
     try:
-        remitente = st.secrets["email_user"]
-        password = st.secrets["email_password"]
-    except:
-        st.error("❌ Error: Configure 'email_user' y 'email_password' en los Secrets.")
-        return False
+        smtp_server = "smtp.office365.com"
+        smtp_port = 587
+        sender_email = st.secrets["emails"]["smtp_user"]
+        sender_password = st.secrets["emails"]["smtp_pass"]
 
-    msg = MIMEMultipart()
-    msg['From'] = remitente
-    msg['To'] = remitente
-    msg['Cc'] = "sfr.support@swarco.com"
-    msg['Subject'] = f"NUEVO TICKET SAT: {ticket_id} - {empresa}"
+        # Crear el mensaje
+        msg = MIMEMultipart()
+        msg['From'] = sender_email
+        msg['To'] = "tu_correo_destino@swarco.com" # Cambia esto por el correo que recibe los SAT
+        msg['Subject'] = f"NUEVO TICKET SAT: {ticket_id} - {empresa}"
 
-    filas = ""
-    for i, eq in enumerate(lista_equipos):
-        bg = "#ffffff" if i % 2 == 0 else "#f9f9f9"
-        filas += f"<tr style='background:{bg};'><td>{i+1}</td><td><b>{eq['ns']}</b></td><td>{eq['ref']}</td><td>{eq['urgencia']}</td><td>{eq['desc']}</td></tr>"
+        # Construcción del cuerpo del mensaje en HTML para que se vea Pro
+        cuerpo_equipos = ""
+        for i, equipo in enumerate(lista_equipos, 1):
+            # BUSQUEDA BLINDADA: Busca 'N.S.', luego 'ns', y si no hay nada pone 'No indicado'
+            # Esto mata el error 'ns' para siempre
+            sn = equipo.get('N.S.', equipo.get('ns', equipo.get('SN', 'No indicado')))
+            ref = equipo.get('REF', equipo.get('ref', 'No indicado'))
+            urg = equipo.get('Prioridad', equipo.get('urgencia', 'Normal'))
+            desc = equipo.get('Descripción', equipo.get('desc', 'Sin descripción'))
 
-    cuerpo_html = f"""
-    <html><body style='font-family: Arial;'>
-        <div style='border: 2px solid #00549F; max-width: 800px; margin: auto;'>
-            <div style='background:#00549F; color:white; padding:20px; text-align:center;'><h2>SWARCO SUPPORT SPAIN</h2></div>
-            <div style='padding:20px;'>
-                <p><b>Ticket ID:</b> {ticket_id} | <b>Empresa:</b> {empresa}</p>
-                <p><b>Contacto:</b> {contacto} | <b>Tel:</b> {telefono}</p>
-                <table border='1' style='width:100%; border-collapse:collapse;'>
-                    <tr style='background:#009FE3; color:white;'><th>#</th><th>S/N</th><th>REF</th><th>Urgencia</th><th>Falla</th></tr>
-                    {filas}
-                </table>
+            cuerpo_equipos += f"""
+            <div style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-left: 5px solid #F29400;">
+                <p><b>Equipo {i}:</b></p>
+                <ul>
+                    <li><b>N.S.:</b> {sn}</li>
+                    <li><b>REF:</b> {ref}</li>
+                    <li><b>Prioridad:</b> {urg}</li>
+                    <li><b>Descripción:</b> {desc}</li>
+                </ul>
             </div>
-        </div>
-    </body></html>"""
-    
-    msg.attach(MIMEText(cuerpo_html, 'html'))
-    try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
+            """
+
+        html = f"""
+        <html>
+        <body style="font-family: sans-serif; color: #333;">
+            <h2 style="color: #00549F;">Reporte Técnico SAT - SWARCO</h2>
+            <p>Se ha generado un nuevo ticket con la siguiente información:</p>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="background-color: #f8f8f8;">
+                    <td style="padding: 10px; border: 1px solid #ddd;"><b>Ticket ID:</b></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{ticket_id}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><b>Cliente / Empresa:</b></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{empresa}</td>
+                </tr>
+                <tr style="background-color: #f8f8f8;">
+                    <td style="padding: 10px; border: 1px solid #ddd;"><b>Contacto:</b></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{contacto}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><b>Email:</b></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{email_usuario}</td>
+                </tr>
+                <tr style="background-color: #f8f8f8;">
+                    <td style="padding: 10px; border: 1px solid #ddd;"><b>Teléfono:</b></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{telefono}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><b>Ubicación/Proyecto:</b></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{proyecto}</td>
+                </tr>
+            </table>
+
+            <h3 style="color: #00549F; margin-top: 20px;">Detalle de los Equipos:</h3>
+            {cuerpo_equipos}
+
+            <p style="font-size: 12px; color: #999; margin-top: 30px;">
+                © 2026 SWARCO TRAFFIC SPAIN | Enviado desde el Portal SAT.
+            </p>
+        </body>
+        </html>
+        """
+
+        msg.attach(MIMEText(html, 'html'))
+
+        # Conexión al servidor y envío
+        server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
-        server.login(remitente, password)
-        server.send_message(msg)
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, msg['To'], msg.as_string())
         server.quit()
+
         return True
+
     except Exception as e:
-        st.error(f"Error envío: {e}")
+        print(f"Error enviando correo: {e}")
         return False
