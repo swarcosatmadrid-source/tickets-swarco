@@ -25,7 +25,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 if gestionar_acceso(conn):
     d_cli = st.session_state.datos_cliente
     
-    # --- HEADER: LOGO Y TRADUCTOR ---
+    # --- HEADER ---
     col_logo, col_lang = st.columns([1.5, 1])
     with col_logo:
         st.image("logo.png", width=250)
@@ -33,7 +33,7 @@ if gestionar_acceso(conn):
         idioma_txt = st.text_input("Idioma / Language", value="Castellano")
         t = traducir_interfaz(idioma_txt)
 
-    # --- CATEGORÍA 1: CLIENTE ---
+    # --- SECCIÓN 1: CLIENTE ---
     st.markdown(f'<div class="section-header">{t["cat1"]}</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
@@ -49,10 +49,10 @@ if gestionar_acceso(conn):
         tel_raw = st.text_input(f"{t['tel']} (Prefijo: {prefijo})")
         tel_final = f"{prefijo}{''.join(filter(str.isdigit, tel_raw))}"
 
-    # --- CATEGORÍA 2: EQUIPO (LA PEGATINA) ---
+    # --- SECCIÓN 2: EQUIPO ---
     st.markdown(f'<div class="section-header">{t["cat2"]}</div>', unsafe_allow_html=True)
-    st.info(t['pegatina']) # Aquí está la explicación de uso
-    st.image("etiqueta.jpeg", use_container_width=True) # La foto de referencia
+    st.info(t['pegatina'])
+    st.image("etiqueta.jpeg", use_container_width=True)
 
     if 'lista_equipos' not in st.session_state:
         st.session_state.lista_equipos = []
@@ -63,54 +63,53 @@ if gestionar_acceso(conn):
     with ce2:
         ref_in = st.text_input("REF.", key="ref_act")
 
-    # --- CATEGORÍA 3: PROBLEMA ---
+    # --- SECCIÓN 3: FALLO ---
     st.markdown(f'<div class="section-header">{t["cat3"]}</div>', unsafe_allow_html=True)
-    
     opciones_urg = [t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']]
     urg_val = st.select_slider(t['urg_instruccion'], options=opciones_urg, value=t['u3'])
-
     falla_in = st.text_area(t['desc_instruccion'], placeholder=t['desc_placeholder'], key="desc_act")
-    
-    st.markdown(f"**{t['fotos']}**")
-    archivos = st.file_uploader("", accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'mp4'], label_visibility="collapsed")
+    archivos = st.file_uploader(t['fotos'], accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'mp4'])
 
     st.divider()
 
-    # --- BOTONES Y LÓGICA DE TABLA ---
+    # --- LÓGICA DE BOTONES Y CUADRO DE EXPLICACIÓN ---
     col_add, col_gen = st.columns(2)
     
     with col_add:
-        if st.button(f"➕ {t['btn_agregar']}", use_container_width=True):
+        btn_add = st.button(f"➕ {t['btn_agregar']}", use_container_width=True)
+        if btn_add:
             if ns_in and falla_in:
                 st.session_state.lista_equipos.append({
-                    "N.S.": ns_in, 
-                    "REF": ref_in, 
-                    "Prioridad": urg_val, 
-                    "Descripción": falla_in
+                    "N.S.": ns_in, "REF": ref_in, "Prioridad": urg_val, "Descripción": falla_in
                 })
                 st.rerun()
             else:
-                st.warning("⚠️ Complete los datos del equipo actual.")
+                st.error("⚠️ Rellene N.S. y Descripción.")
 
-    # LA TABLA: Se muestra si hay algo en la lista
-    if st.session_state.lista_equipos:
-        st.markdown("### 📋 Resumen del Ticket")
+    with col_gen:
+        btn_generar = st.button(f"🚀 {t['btn_generar']}", type="primary", use_container_width=True)
+
+    # --- AQUÍ ESTÁ EL CUADRO DE DIALOGO/EXPLICACIÓN QUE FALTABA ---
+    if not st.session_state.lista_equipos:
+        st.warning("📢 **Nota:** Primero debes rellenar los datos del equipo arriba y pulsar en '**Añadir otro equipo**' para que se guarde en la lista. Una vez que veas el equipo en la tabla inferior, podrás generar el ticket final.")
+        
+        if btn_generar:
+            st.error("❌ La lista está vacía. Añade al menos un equipo antes de generar el ticket.")
+    
+    else:
+        # Si ya hay equipos, mostramos la tabla de ayer
+        st.markdown("### 📋 Equipos en este reporte:")
         st.table(pd.DataFrame(st.session_state.lista_equipos))
         
-        with col_gen:
-            if st.button(f"🚀 {t['btn_generar']}", type="primary", use_container_width=True):
+        if btn_generar:
+            if proyecto_ub:
                 ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
-                
-                # Registro en GSheets
                 try:
+                    # Lógica de guardado en GSheets
                     resumen_ns = " | ".join([e['N.S.'] for e in st.session_state.lista_equipos])
                     nueva_fila = pd.DataFrame([{
-                        "Ticket_ID": ticket_id, 
-                        "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        "Cliente": d_cli['Empresa'], 
-                        "Ubicacion": proyecto_ub, 
-                        "Equipos": resumen_ns, 
-                        "Estado": "OPEN"
+                        "Ticket_ID": ticket_id, "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "Cliente": d_cli['Empresa'], "Ubicacion": proyecto_ub, "Equipos": resumen_ns, "Estado": "OPEN"
                     }])
                     df_h = conn.read(worksheet="Sheet1", ttl=0)
                     conn.update(worksheet="Sheet1", data=pd.concat([df_h, nueva_fila], ignore_index=True))
@@ -122,15 +121,11 @@ if gestionar_acceso(conn):
                         st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")
-    else:
-        # Si la lista está vacía, el botón de generar ticket se muestra pero avisa que falta agregar el equipo
-        with col_gen:
-            if st.button(f"🚀 {t['btn_generar']}", type="primary", use_container_width=True):
-                st.error("⚠️ Primero debe añadir al menos un equipo a la lista usando el botón (+).")
+            else:
+                st.error("⚠️ Por favor, indica la Ubicación/Proyecto.")
 
     st.markdown("---")
     if st.button("🚪 Cerrar Sesión", use_container_width=True):
         st.session_state.autenticado = False
         st.rerun()
-
 
