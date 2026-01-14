@@ -5,7 +5,7 @@ from datetime import datetime
 import os
 import sys
 
-# 1. SEGURIDAD DE RUTAS
+# 1. SEGURIDAD Y CONFIGURACIÓN
 sys.path.append(os.path.dirname(__file__))
 
 from estilos import cargar_estilos
@@ -14,98 +14,121 @@ from paises import PAISES_DATA
 from correo import enviar_email_outlook
 from streamlit_gsheets import GSheetsConnection
 
-# Configuración de página con nombre empresarial
+# Configuración de página
 st.set_page_config(page_title="SWARCO TRAFFIC SPAIN | Portal SAT", layout="centered", page_icon="🚥")
 cargar_estilos()
 
-# --- CAPA DE SEGURIDAD (LOGIN BÁSICO) ---
-# Esto evita que curiosos usen la app si el link se filtra
-if 'autenticado' not in st.session_state:
-    st.session_state.autenticado = False
-
-def validar_acceso():
-    # Esta clave puede ser fija o una lista de IDs de clientes
-    if st.session_state.clave_acceso == "SWARCO2024": 
-        st.session_state.autenticado = True
-    else:
-        st.error("❌ Código de acceso incorrecto.")
-
-if not st.session_state.autenticado:
-    st.image("logo.png", width=300)
-    st.subheader("Acceso al Portal de Reporte Técnico")
-    st.text_input("Introduzca su Código de Cliente / Access Code", type="password", key="clave_acceso", on_change=validar_acceso)
-    st.stop() # Detiene la ejecución aquí si no está autenticado
-
-# --- INICIO DE LA APLICACIÓN (SOLO SI PASÓ EL LOGIN) ---
+# Conexión a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-col_logo, col_lang = st.columns([1.5, 1])
-with col_logo:
-    st.image("logo.png", width=250)
-with col_lang:
-    idioma_txt = st.text_input("Idioma / Language", value="Castellano")
-    t = traducir_interfaz(idioma_txt)
+# --- SISTEMA DE AUTENTICACIÓN Y REGISTRO ---
+if 'autenticado' not in st.session_state:
+    st.session_state.autenticado = False
+    st.session_state.datos_cliente = {}
 
-# TÍTULO INSTITUCIONAL
-st.markdown(f"""
-    <div style="text-align: center; margin-top: 10px; margin-bottom: 30px;">
-        <h2 style="color: #00549F; font-family: sans-serif; margin-bottom: 0px; font-weight: 800;">
-            SWARCO TRAFFIC SPAIN
-        </h2>
-        <h3 style="color: #666; font-family: sans-serif; margin-top: 5px; border-bottom: 2px solid #F29400; display: inline-block; padding-bottom: 10px;">
-            {t.get('titulo_portal', 'Portal de Reporte Técnico SAT')}
-        </h3>
-    </div>
-""", unsafe_allow_html=True)
+def login_usuario(usuario, clave):
+    try:
+        df_clientes = conn.read(worksheet="Clientes")
+        # Buscamos que coincidan Usuario y Clave
+        validar = df_clientes[(df_clientes['Usuario'] == usuario) & (df_clientes['Clave'] == clave)]
+        
+        if not validar.empty:
+            st.session_state.autenticado = True
+            st.session_state.datos_cliente = validar.iloc[0].to_dict()
+            st.rerun()
+        else:
+            st.error("❌ Usuario o clave incorrectos.")
+    except Exception as e:
+        st.error(f"Error de conexión: {e}")
 
-# --- CATEGORÍA 1: CLIENTE ---
+def registrar_usuario(nuevo_usr, nueva_clv, empresa, contacto, email):
+    try:
+        df_clientes = conn.read(worksheet="Clientes")
+        if nuevo_usr in df_clientes['Usuario'].values:
+            st.warning("⚠️ Este nombre de usuario ya existe. Elija otro.")
+        else:
+            nueva_data = pd.DataFrame([{
+                "Usuario": nuevo_usr, "Clave": nueva_clv, 
+                "Empresa": empresa, "Contacto": contacto, "Email": email
+            }])
+            df_final = pd.concat([df_clientes, nueva_data], ignore_index=True)
+            conn.update(worksheet="Clientes", data=df_final)
+            st.success("✅ Registro completado. ¡Ahora puede entrar!")
+    except Exception as e:
+        st.error(f"Error al registrar: {e}")
+
+# --- PANTALLA DE ENTRADA / REGISTRO ---
+if not st.session_state.autenticado:
+    st.image("logo.png", width=300)
+    tab_login, tab_registro = st.tabs(["🔑 Entrar", "📝 Registrarse"])
+    
+    with tab_login:
+        u_login = st.text_input("Usuario")
+        p_login = st.text_input("Contraseña", type="password")
+        if st.button("Acceder", use_container_width=True):
+            login_usuario(u_login, p_login)
+            
+    with tab_registro:
+        st.info("Cree su cuenta para que sus datos se rellenen automáticamente en el futuro.")
+        r_usr = st.text_input("Defina su Usuario")
+        r_clv = st.text_input("Defina su Contraseña", type="password")
+        r_emp = st.text_input("Empresa / Entidad")
+        r_con = st.text_input("Persona de Contacto")
+        r_ema = st.text_input("Email Corporativo")
+        if st.button("Crear Cuenta", use_container_width=True):
+            if r_usr and r_clv and r_emp and r_ema:
+                registrar_usuario(r_usr, r_clv, r_emp, r_con, r_ema)
+            else:
+                st.error("⚠️ Por favor, rellene todos los campos.")
+    st.stop()
+
+# --- INICIO DE LA APP (UNA VEZ LOGUEADO) ---
+t = traducir_interfaz("Castellano") 
+d_cli = st.session_state.datos_cliente
+
+st.image("logo.png", width=250)
+st.title(f"Bienvenido, {d_cli['Contacto']}")
+
+# --- CATEGORÍA 1: CLIENTE (AUTO-RELLENADA) ---
 st.markdown(f'<div class="section-header">{t["cat1"]}</div>', unsafe_allow_html=True)
 c1, c2 = st.columns(2)
+
 with c1:
-    empresa = st.text_input(t['cliente'], key="empresa_input")
-    contacto = st.text_input(t['contacto'])
-    proyecto_ub = st.text_input(t['proyecto'])
+    # Estos campos son de solo lectura porque ya los puso el cliente al registrarse
+    empresa = st.text_input(t['cliente'], value=d_cli['Empresa'], disabled=True)
+    contacto = st.text_input(t['contacto'], value=d_cli['Contacto'], disabled=True)
+    proyecto_ub = st.text_input(t['proyecto']) # Este sí lo llenan por reporte
+
 with c2:
-    email_usr = st.text_input(t['email'])
+    email_usr = st.text_input(t['email'], value=d_cli['Email'], disabled=True)
     p_nombres = list(PAISES_DATA.keys())
-    idx_def = p_nombres.index("Spain") if "Spain" in p_nombres else 0
-    pais_sel = st.selectbox(t['pais'], p_nombres, index=idx_def)
-    prefijo = PAISES_DATA[pais_sel]
-    tel_raw = st.text_input(f"{t['tel']} (Prefijo: {prefijo})", placeholder="Solo números")
-    tel_final = f"{prefijo}{''.join(filter(str.isdigit, tel_raw))}"
+    pais_sel = st.selectbox(t['pais'], p_nombres, index=p_nombres.index("Spain") if "Spain" in p_nombres else 0)
+    tel_raw = st.text_input(f"{t['tel']}", placeholder="Solo números")
+    tel_final = "".join(filter(str.isdigit, tel_raw))
 
 # --- CATEGORÍA 2: EQUIPO ---
 st.markdown(f'<div class="section-header">{t["cat2"]}</div>', unsafe_allow_html=True)
-st.info(t['pegatina'])
-
 ce1, ce2 = st.columns(2)
 with ce1:
     ns_in = st.text_input(t['ns_titulo'], key="ns_input")
 with ce2:
     ref_in = st.text_input("REF.", key="ref_input")
 
-# --- CATEGORÍA 3: PROBLEMA Y PRIORIDAD ---
+# --- CATEGORÍA 3: PROBLEMA ---
 st.markdown(f'<div class="section-header">{t["cat3"]}</div>', unsafe_allow_html=True)
-opciones_urg = [t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']]
-urg_val = st.select_slider(t['urg_instruccion'], options=opciones_urg, value=t['u3'])
-falla_in = st.text_area(t['desc_instruccion'], placeholder=t['desc_placeholder'], key="desc_input")
-
-# MULTIMEDIA
-st.markdown(f"**{t['fotos']}**")
-archivos = st.file_uploader("", accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'mp4'], label_visibility="collapsed")
+urg_val = st.select_slider(t['urg_instruccion'], options=[t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']], value=t['u3'])
+falla_in = st.text_area(t['desc_instruccion'], key="desc_input")
 
 if 'lista_equipos' not in st.session_state:
     st.session_state.lista_equipos = []
 
 # ACCIONES
-st.markdown("---")
 col_btn1, col_btn2 = st.columns(2)
 with col_btn1:
     if st.button(f"➕ {t['btn_agregar']}", use_container_width=True):
         if len(ns_in) >= 3 and len(falla_in) >= 10:
             st.session_state.lista_equipos.append({
-                "ID": str(uuid.uuid4())[:8],
-                "N.S.": ns_in, "REF": ref_in, "Prioridad": urg_val, "Descripción": falla_in
+                "ID": str(uuid.uuid4())[:8], "N.S.": ns_in, "REF": ref_in, "Prioridad": urg_val, "Descripción": falla_in
             })
             st.rerun()
 
@@ -115,33 +138,20 @@ with col_btn2:
         if not data_final and ns_in and falla_in:
             data_final.append({"ID": str(uuid.uuid4())[:8], "N.S.": ns_in, "REF": ref_in, "Prioridad": urg_val, "Descripción": falla_in})
         
-        if empresa and email_usr and data_final:
+        if empresa and data_final:
             ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
-            if enviar_email_outlook(empresa, contacto, proyecto_ub, data_final, email_usr, ticket_id, tel_final):
-                try:
-                    # REGISTRO EN GOOGLE SHEETS
-                    resumen_ns = ", ".join([e['N.S.'] for e in data_final])
-                    nueva_fila = pd.DataFrame([{
-                        "Ticket": ticket_id, "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        "Cliente": empresa, "Equipos": resumen_ns, "Estado": "OPEN"
-                    }])
-                    df_historico = conn.read(worksheet="Sheet1")
-                    df_updated = pd.concat([df_historico, nueva_fila], ignore_index=True)
-                    conn.update(worksheet="Sheet1", data=df_updated)
-                    
-                    st.success(t['exito'])
-                    st.balloons()
-                    st.session_state.lista_equipos = []
-                except Exception as e:
-                    st.warning(f"Error registro DB: {e}")
+            if enviar_email_outlook(empresa, d_cli['Contacto'], proyecto_ub, data_final, d_cli['Email'], ticket_id, tel_final):
+                st.success(t['exito'])
+                st.balloons()
+                st.session_state.lista_equipos = []
         else:
-            st.error("⚠️ Datos incompletos.")
+            st.error("⚠️ No hay equipos para reportar.")
 
-# RESUMEN Y CIERRE
-if st.session_state.lista_equipos:
-    st.table(pd.DataFrame(st.session_state.lista_equipos).drop(columns=["ID"]))
+# CIERRE DE SESIÓN
+if st.sidebar.button("Cerrar Sesión"):
+    st.session_state.autenticado = False
+    st.rerun()
 
-st.markdown("---")
-st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2024 SWARCO TRAFFIC SPAIN</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; font-size:12px; color:#999; margin-top:50px;'>© 2024 SWARCO TRAFFIC SPAIN</p>", unsafe_allow_html=True)
 
 
