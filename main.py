@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime
 import os
 import sys
+import requests # Necesario para la conexión con el Script
 
 # 1. CONFIGURACIÓN Y RUTAS
 sys.path.append(os.path.dirname(__file__))
@@ -15,19 +16,17 @@ from correo import enviar_email_outlook
 from streamlit_gsheets import GSheetsConnection
 from usuarios import gestionar_acceso
 
-# Configuración de pestaña
+# URL DE TU GOOGLE APPS SCRIPT (Ya integrada)
+URL_SCRIPT = "https://script.google.com/macros/s/AKfycbyDpHS4nU16O7YyvABvmbFYHTLv2e2J8vrpSD-iCmamjmS4Az6p9iZNUmVEwzMVyzx9/exec"
+
 st.set_page_config(page_title="SWARCO SAT | Portal Técnico", layout="centered", page_icon="🚥")
 cargar_estilos()
-
-# Conexión única
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- CAPA DE SEGURIDAD (LOGIN) ---
 if gestionar_acceso(conn):
-    
     d_cli = st.session_state.get('datos_cliente', {})
     
-    # --- HEADER: LOGO Y TRADUCTOR ---
+    # --- HEADER ---
     col_logo, col_lang = st.columns([1.5, 1])
     with col_logo:
         st.image("logo.png", width=250)
@@ -47,7 +46,7 @@ if gestionar_acceso(conn):
         </div>
     """, unsafe_allow_html=True)
 
-    # --- BLOQUE CSS (ELIMINACIÓN DE ROJO EN SLIDER) ---
+    # --- BLOQUE CSS SLIDER ---
     st.markdown("""
         <style>
         .stSlider > div [data-baseweb="slider"] {
@@ -91,26 +90,22 @@ if gestionar_acceso(conn):
     with ce2:
         ref_in = st.text_input("REF.", key="ref_input")
 
-    # --- CATEGORÍA 3: PROBLEMA Y URGENCIA ---
+    # --- CATEGORÍA 3: PROBLEMA ---
     st.markdown(f'<div class="section-header">{t["cat3"]}</div>', unsafe_allow_html=True)
-    st.markdown(f"**{t['urg_titulo']}**")
-
     opciones_urg = [t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']]
     urg_val = st.select_slider(t['urg_instruccion'], options=opciones_urg, value=t['u3'])
-
+    
     colores_p = {t['u1']:"#ADD8E6", t['u2']:"#90C3D4", t['u3']:"#7AB1C5", t['u4']:"#C2A350", t['u5']:"#D69B28", t['u6']:"#F29400"}
     st.markdown(f"<style>div[role='slider'] {{ background-color: {colores_p.get(urg_val, '#7AB1C5')} !important; border: 2px solid white !important; }}</style>", unsafe_allow_html=True)
 
     falla_in = st.text_area(t['desc_instruccion'], placeholder=t['desc_placeholder'], key="desc_input")
-
-    # Multimedia
     archivos = st.file_uploader(t['fotos'], accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'mp4'])
 
     if 'lista_equipos' not in st.session_state:
         st.session_state.lista_equipos = []
 
     # --- LÓGICA DINÁMICA DE BOTONES ---
-    texto_boton_agregar = "➕ Registrar Dispositivo" if not st.session_state.lista_equipos else f"➕ {t['btn_agregar']}"
+    texto_btn_add = "➕ Registrar Dispositivo" if not st.session_state.lista_equipos else f"➕ {t['btn_agregar']}"
 
     # --- NOTA EXPLICATIVA ---
     st.markdown("---")
@@ -118,30 +113,23 @@ if gestionar_acceso(conn):
         <div style="background-color: #f0f8ff; padding: 15px; border-radius: 10px; border-left: 5px solid #00549F;">
             <p style="color: #00549F; font-weight: bold; margin-bottom: 5px;">💡 ¿Cómo procesar su solicitud?</p>
             <p style="font-size: 14px; color: #333;">
-                1. Complete los datos técnicos y pulse <b>"{texto_boton_agregar}"</b> para incluirlo en el reporte.<br>
+                1. Complete los datos técnicos y pulse <b>"{texto_btn_add}"</b> para incluirlo en el reporte.<br>
                 2. Verifique en la <b>tabla inferior</b> que la información registrada es correcta.<br>
                 3. Una vez validado, pulse <b>"Generar Ticket Final"</b> para dar curso a su reporte.
             </p>
         </div>
     """, unsafe_allow_html=True)
 
-    # BOTONES DE ACCIÓN
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
-        if st.button(texto_boton_agregar, use_container_width=True):
+        if st.button(texto_btn_add, use_container_width=True):
             if len(ns_in) >= 3 and len(falla_in) >= 10:
-                # GUARDADO CON NOMBRES CORRECTOS PARA LA TABLA
-                st.session_state.lista_equipos.append({
-                    "N.S.": ns_in, 
-                    "REF": ref_in, 
-                    "Prioridad": urg_val, 
-                    "Descripción": falla_in
-                })
+                st.session_state.lista_equipos.append({"N.S.": ns_in, "REF": ref_in, "Prioridad": urg_val, "Descripción": falla_in})
                 st.rerun()
             else:
                 st.warning("⚠️ Complete N.S. y Descripción antes de registrar.")
 
-    # TABLA Y ENVÍO (Solo si hay equipos)
+    # --- TABLA Y ENVÍO FINAL ---
     if st.session_state.lista_equipos:
         st.markdown("### 📋 Equipos registrados en esta solicitud")
         st.table(pd.DataFrame(st.session_state.lista_equipos))
@@ -151,38 +139,35 @@ if gestionar_acceso(conn):
                 if proyecto_ub:
                     ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
                     try:
-                        # 1. Preparación de datos para Google Sheets
-                        u_max = st.session_state.lista_equipos[-1]['Prioridad']
-                        resumen_equipos = " | ".join([f"SN:{e['N.S.']} (Ref:{e['REF']})" for e in st.session_state.lista_equipos])
+                        # Resumen técnico
+                        resumen_ns = " | ".join([f"SN:{e['N.S.']} (Ref:{e['REF']})" for e in st.session_state.lista_equipos])
                         
-                        datos_a_enviar = {
+                        # Datos para el Script de Google
+                        payload = {
                             "Ticket_ID": str(ticket_id),
                             "Fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
                             "Cliente": str(empresa),
                             "Ubicacion": str(proyecto_ub),
-                            "Equipos": str(resumen_equipos),
-                            "Urgencia Max": str(u_max),
+                            "Equipos": str(resumen_ns),
+                            "Urgencia_Max": str(st.session_state.lista_equipos[-1]['Prioridad']),
                             "Estado": "OPEN"
                         }
                         
-                        # 2. Convertir y limpiar
-                        nueva_fila = pd.DataFrame([datos_a_enviar])
-                        df_h = conn.read(worksheet="Sheet1", ttl=0)
-                        df_h = df_h.dropna(axis=1, how='all')
+                        # Envío al Script
+                        resp = requests.post(URL_SCRIPT, json=payload)
                         
-                        # 3. Actualizar Google Sheets
-                        conn.update(worksheet="Sheet1", data=pd.concat([df_h, nueva_fila], ignore_index=True))
-                        
-                        # 4. Envío de Email
-                        if enviar_email_outlook(empresa, contacto, proyecto_ub, st.session_state.lista_equipos, email_usr, ticket_id, tel_final):
-                            st.success("✅ ¡Reporte enviado y registrado!")
-                            st.balloons()
-                            st.session_state.lista_equipos = []
-                            st.rerun()
+                        if "Éxito_Ticket" in resp.text:
+                            if enviar_email_outlook(empresa, contacto, proyecto_ub, st.session_state.lista_equipos, email_usr, ticket_id, tel_final):
+                                st.success("✅ ¡Reporte enviado y registrado exitosamente!")
+                                st.balloons()
+                                st.session_state.lista_equipos = []
+                                st.rerun()
+                        else:
+                            st.error(f"Error en base de datos: {resp.text}")
                     except Exception as e:
-                        st.error(f"Error al registrar: {e}")
+                        st.error(f"Error de conexión: {e}")
                 else:
-                    st.error("⚠️ Por favor, indique la ubicación del proyecto.")
+                    st.error("⚠️ Indique la ubicación del proyecto.")
         
         if st.button("🗑️ Vaciar Lista"):
             st.session_state.lista_equipos = []
@@ -191,11 +176,10 @@ if gestionar_acceso(conn):
         with col_btn2:
             st.button(f"🚀 {t['btn_generar']}", type="primary", use_container_width=True, disabled=True)
 
-    # SALIR
     st.markdown("---")
     if st.button(f"🚪 {t['btn_salir']}", use_container_width=True):
         st.session_state.autenticado = False
         st.rerun()
 
-    st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2026 SWARCO TRAFFIC SPAIN</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2026 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
 
