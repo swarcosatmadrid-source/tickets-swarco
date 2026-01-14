@@ -144,5 +144,23 @@ if gestionar_acceso(conn):
                         "Estado": "OPEN"
                     }])
                     df_h = conn.read(worksheet="Sheet1", ttl=0)
-                    conn.update(worksheet="Sheet1", data=pd.concat([df_h, nueva_fila], ignore_index=True
+                    conn.update(worksheet="Sheet1", data=pd.concat([df_h, nueva_fila], ignore_index=True))
+                    
+                    if enviar_email_outlook(empresa, contacto, proyecto_ub, st.session_state.lista_equipos, email_usr, ticket_id, tel_final):
+                        st.success(t['exito'])
+                        st.balloons()
+                        st.session_state.lista_equipos = []
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Error registrando en Google Sheets: {e}")
+            else:
+                st.error("⚠️ No hay equipos en la lista o falta la ubicación.")
+
+    with cf2:
+        if st.button(f"🚪 {t['btn_salir']}", use_container_width=True):
+            st.session_state.autenticado = False
+            st.rerun()
+
+    st.markdown("---")
+    st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2026 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
 
