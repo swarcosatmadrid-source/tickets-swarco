@@ -1,87 +1,42 @@
 import streamlit as st
 import pandas as pd
+import requests
+import json
 
 def gestionar_acceso(conn):
-    # 1. Inicializar variables de sesión si no existen
     if 'autenticado' not in st.session_state:
         st.session_state.autenticado = False
         st.session_state.datos_cliente = {}
 
-    # 2. Si no está autenticado, mostrar pantalla de acceso
     if not st.session_state.autenticado:
         st.image("logo.png", width=300)
-        tab_login, tab_registro = st.tabs(["🔑 Iniciar Sesión", "📝 Crear Cuenta"])
+        t1, t2 = st.tabs(["🔑 Login", "📝 Registro"])
         
-        with tab_login:
-            u = st.text_input("Usuario", key="u_login")
-            p = st.text_input("Contraseña", type="password", key="p_login")
-            if st.button("Entrar", use_container_width=True):
-                try:
-                    # Intentamos leer la pestaña "Clientes"
-                    # Si da error 400, leemos la pestaña por defecto (la primera)
-                    try:
-                        df = conn.read(worksheet="Clientes", ttl=0)
-                    except:
-                        df = conn.read(ttl=0)
-                    
-                    # Validamos credenciales
-                    validar = df[(df['Usuario'].astype(str) == u) & (df['Clave'].astype(str) == p)]
-                    
-                    if not validar.empty:
-                        st.session_state.autenticado = True
-                        st.session_state.datos_cliente = validar.iloc[0].to_dict()
-                        st.rerun()
-                    else:
-                        st.error("❌ Usuario o clave incorrectos.")
-                except Exception as e:
-                    st.error(f"Error de conexión con la base de datos: {e}")
-                    
-        with tab_registro:
-            st.info("Cree su cuenta para autorellenar sus reportes SAT.")
-            r_usr = st.text_input("Defina Usuario", key="r_u")
-            r_clv = st.text_input("Defina Contraseña", type="password", key="r_p")
-            r_emp = st.text_input("Empresa", key="r_e")
-            r_con = st.text_input("Persona de Contacto", key="r_c")
-            r_ema = st.text_input("Email Corporativo", key="r_m")
-            
-            if st.button("Finalizar Registro", use_container_width=True):
-                if r_usr and r_clv and r_emp and r_ema:
-                    try:
-                        # Leemos la base actual (con bypass de error de pestaña)
-                        try:
-                            df = conn.read(worksheet="Clientes", ttl=0)
-                        except:
-                            df = conn.read(ttl=0)
-                        
-                        # Verificamos si las columnas existen, si no, las creamos
-                        columnas_necesarias = ['Usuario', 'Clave', 'Empresa', 'Contacto', 'Email']
-                        if df.empty or not all(col in df.columns for col in columnas_necesarias):
-                            df = pd.DataFrame(columns=columnas_necesarias)
+        with t1:
+            u = st.text_input("Usuario", key="l_u")
+            p = st.text_input("Clave", type="password", key="l_p")
+            if st.button("Entrar"):
+                df = conn.read(worksheet="Clientes", ttl=0)
+                val = df[(df['Usuario'].astype(str) == u) & (df['Clave'].astype(str) == p)]
+                if not val.empty:
+                    st.session_state.autenticado = True
+                    st.session_state.datos_cliente = val.iloc[0].to_dict()
+                    st.rerun()
+                else: st.error("Fallo")
 
-                        if r_usr in df['Usuario'].values:
-                            st.warning("⚠️ El usuario ya existe.")
-                        else:
-                            # Añadimos el nuevo registro
-                            nuevo = pd.DataFrame([{
-                                "Usuario": str(r_usr), 
-                                "Clave": str(r_clv), 
-                                "Empresa": str(r_emp), 
-                                "Contacto": str(r_con), 
-                                "Email": str(r_ema)
-                            }])
-                            
-                            df_final = pd.concat([df, nuevo], ignore_index=True)
-                            
-                            # Intentamos actualizar la pestaña específica o la primera por defecto
-                            try:
-                                conn.update(worksheet="Clientes", data=df_final)
-                            except:
-                                conn.update(data=df_final)
-                                
-                            st.success("✅ ¡Registro completado! Ya puedes entrar por la pestaña de 'Iniciar Sesión'.")
-                    except Exception as e:
-                        st.error(f"No se pudo escribir en la hoja de Google: {e}")
-                else:
-                    st.error("⚠️ Por favor, rellene todos los campos.")
+        with t2:
+            r_u = st.text_input("Nuevo Usuario")
+            r_p = st.text_input("Nueva Clave", type="password")
+            r_e = st.text_input("Empresa")
+            r_c = st.text_input("Tu Nombre")
+            r_m = st.text_input("Tu Email")
+            if st.button("Registrar"):
+                # PEGA AQUÍ TU URL DEL PASO 2
+                URL_TUNEZ = "TU_URL_DE_APPS_SCRIPT_AQUI"
+                datos = {"Usuario": r_u, "Clave": r_p, "Empresa": r_e, "Contacto": r_c, "Email": r_m}
+                res = requests.post(URL_TUNEZ, data=json.dumps(datos))
+                if "Exito" in res.text:
+                    st.success("¡Listo! Ya puedes loguearte.")
+                else: st.error("Error de conexión")
         return False
     return True
