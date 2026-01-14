@@ -34,7 +34,7 @@ if 'lista_equipos' not in st.session_state:
 # --- CAPA DE SEGURIDAD ---
 if gestionar_acceso(conn):
     
-    # --- PANTALLA DE ÉXITO (Solo se muestra cuando se crea el ticket) ---
+    # --- PANTALLA DE ÉXITO (Prioridad Máxima) ---
     if st.session_state.ticket_exitoso:
         st.markdown(f"""
             <div style="background-color: #f0fff0; padding: 40px; border-radius: 20px; border: 2px solid #2ecc71; text-align: center; margin-top: 50px;">
@@ -61,12 +61,11 @@ if gestionar_acceso(conn):
                 st.session_state.ticket_exitoso = False
                 st.rerun()
         
-        st.stop() # Detiene el resto de la página para que no se vea el formulario vacío
+        st.stop() # IMPORTANTE: Detiene el resto de la ejecución aquí
 
     # --- FLUJO NORMAL: FORMULARIO ---
     d_cli = st.session_state.get('datos_cliente', {})
     
-    # Header
     col_logo, col_lang = st.columns([1.5, 1])
     with col_logo:
         st.image("logo.png", width=250)
@@ -74,7 +73,6 @@ if gestionar_acceso(conn):
         idioma_txt = st.text_input("Idioma / Language", value="Castellano")
         t = traducir_interfaz(idioma_txt)
 
-    # Título Principal
     st.markdown(f"""
         <div style="text-align: center; margin-top: 10px; margin-bottom: 30px;">
             <h2 style="color: #00549F; font-family: sans-serif; margin-bottom: 0px; font-weight: 800;">SWARCO TRAFFIC SPAIN</h2>
@@ -84,7 +82,6 @@ if gestionar_acceso(conn):
         </div>
     """, unsafe_allow_html=True)
 
-    # Bloque CSS Slider
     st.markdown("""
         <style>
         .stSlider > div [data-baseweb="slider"] {
@@ -93,10 +90,10 @@ if gestionar_acceso(conn):
         }
         .stSlider > div [data-baseweb="slider"] > div:nth-child(2) { background-color: transparent !important; }
         [data-testid="stTickBarMin"], [data-testid="stTickBarMax"] { color: #00549F !important; font-weight: bold !important; }
+        .section-header { background-color: #00549F; color: white; padding: 10px; border-radius: 5px; margin-top: 20px; font-weight: bold; }
         </style>
     """, unsafe_allow_html=True)
 
-    # CATEGORÍA 1: CLIENTE
     st.markdown(f'<div class="section-header">{t["cat1"]}</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
@@ -112,7 +109,6 @@ if gestionar_acceso(conn):
         tel_raw = st.text_input(f"{t['tel']} (Prefijo: {prefijo})")
         tel_final = f"{prefijo}{''.join(filter(str.isdigit, tel_raw))}"
 
-    # CATEGORÍA 2: EQUIPO
     st.markdown(f'<div class="section-header">{t["cat2"]}</div>', unsafe_allow_html=True)
     st.info(t['pegatina'])
     st.image("etiqueta.jpeg", use_container_width=True)
@@ -123,7 +119,6 @@ if gestionar_acceso(conn):
     with ce2:
         ref_in = st.text_input("REF.", key="ref_input")
 
-    # CATEGORÍA 3: PROBLEMA
     st.markdown(f'<div class="section-header">{t["cat3"]}</div>', unsafe_allow_html=True)
     opciones_urg = [t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']]
     urg_val = st.select_slider(t['urg_instruccion'], options=opciones_urg, value=t['u3'])
@@ -134,7 +129,6 @@ if gestionar_acceso(conn):
     falla_in = st.text_area(t['desc_instruccion'], placeholder=t['desc_placeholder'], key="desc_input")
     archivos = st.file_uploader(t['fotos'], accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'mp4'])
 
-    # BOTONES DE ACCIÓN
     texto_btn_add = "➕ Registrar Dispositivo" if not st.session_state.lista_equipos else f"➕ {t['btn_agregar']}"
     
     st.markdown("---")
@@ -150,7 +144,6 @@ if gestionar_acceso(conn):
             else:
                 st.warning("⚠️ Complete N.S. y Descripción.")
 
-    # TABLA Y ENVÍO
     if st.session_state.lista_equipos:
         st.markdown("### 📋 Equipos registrados en esta solicitud")
         st.table(pd.DataFrame(st.session_state.lista_equipos))
@@ -161,8 +154,8 @@ if gestionar_acceso(conn):
                     ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
                     ahora = datetime.now()
                     try:
-                        resumen_ns = ", ".join([str(e.get('N.S.', '')) for e in st.session_state.lista_equipos])
-                        resumen_ref = ", ".join([str(e.get('REF', '')) for e in st.session_state.lista_equipos])
+                        res_ns = ", ".join([str(e.get('N.S.', '')) for e in st.session_state.lista_equipos])
+                        res_ref = ", ".join([str(e.get('REF', '')) for e in st.session_state.lista_equipos])
                         
                         payload = {
                             "Ticket_ID": str(ticket_id),
@@ -170,7 +163,7 @@ if gestionar_acceso(conn):
                             "Hora": ahora.strftime("%H:%M"),
                             "Cliente": str(empresa),
                             "Ubicacion": str(proyecto_ub),
-                            "NS": resumen_ns, "REF": resumen_ref,
+                            "NS": res_ns, "REF": res_ref,
                             "Urgencia_Max": str(st.session_state.lista_equipos[-1].get('Prioridad', '')),
                             "Estado": "OPEN"
                         }
@@ -178,11 +171,11 @@ if gestionar_acceso(conn):
                         resp = requests.post(URL_SCRIPT, json=payload)
                         
                         if "Éxito_Ticket" in resp.text:
-                            if enviar_email_outlook(empresa, contacto, proyecto_ub, st.session_state.lista_equipos, email_usr, ticket_id, tel_final):
-                                # ACTIVAR PANTALLA DE ÉXITO
-                                st.session_state.ticket_exitoso = True
-                                st.session_state.ultimo_ticket = ticket_id
-                                st.rerun()
+                            enviar_email_outlook(empresa, contacto, proyecto_ub, st.session_state.lista_equipos, email_usr, ticket_id, tel_final)
+                            # --- CAMBIO CLAVE AQUÍ ---
+                            st.session_state.ultimo_ticket = ticket_id
+                            st.session_state.ticket_exitoso = True
+                            st.rerun()
                         else:
                             st.error(f"Error en BD: {resp.text}")
                     except Exception as e:
@@ -201,5 +194,4 @@ if gestionar_acceso(conn):
         st.rerun()
 
     st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2026 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
-
 
