@@ -12,10 +12,15 @@ from estilos import cargar_estilos
 from idiomas import traducir_interfaz
 from paises import PAISES_DATA
 from correo import enviar_email_outlook
+from streamlit_gsheets import GSheetsConnection # <--- NUEVA LIBRERÍA
 
 # Configuración de pestaña del navegador
 st.set_page_config(page_title="SWARCO SAT | Portal Técnico", layout="centered", page_icon="🚥")
 cargar_estilos()
+
+# Conexión a Google Sheets (Base de Datos)
+# Para que esto funcione, debes poner la URL en los Secrets de Streamlit
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- HEADER: LOGO Y TRADUCTOR ---
 col_logo, col_lang = st.columns([1.5, 1])
@@ -25,7 +30,7 @@ with col_lang:
     idioma_txt = st.text_input("Idioma / Language", value="Castellano")
     t = traducir_interfaz(idioma_txt)
 
-# --- TÍTULO PRINCIPAL CON NOMBRE COMPLETO ---
+# --- TÍTULO PRINCIPAL ---
 st.markdown(f"""
     <div style="text-align: center; margin-top: 10px; margin-bottom: 30px;">
         <h2 style="color: #00549F; font-family: sans-serif; margin-bottom: 0px; font-weight: 800;">
@@ -37,15 +42,26 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# --- BLOQUE CSS (ELIMINACIÓN DE ROJO) ---
+# --- BLOQUE CSS (ELIMINACIÓN DE ROJO REFORZADA) ---
 st.markdown("""
     <style>
+    /* Carril con degradado */
     .stSlider > div [data-baseweb="slider"] {
         background: linear-gradient(to right, #ADD8E6 0%, #F29400 100%) !important;
         height: 12px !important;
+        border-radius: 6px !important;
     }
-    .stSlider > div [data-baseweb="slider"] > div:nth-child(2) {
+    /* Matar la línea roja de progreso por color y por posición */
+    .stSlider > div [data-baseweb="slider"] > div:first-child {
         background-color: transparent !important;
+    }
+    .stSlider > div [data-baseweb="slider"] [style*="background-color: rgb(255, 75, 75)"] {
+        background-color: transparent !important;
+    }
+    /* Bolita del slider */
+    div[role="slider"] {
+        background-color: white !important;
+        border: 3px solid #00549F !important;
     }
     [data-testid="stTickBarMin"], [data-testid="stTickBarMax"] {
         color: #00549F !important;
@@ -69,8 +85,6 @@ with c2:
     prefijo = PAISES_DATA[pais_sel]
     tel_raw = st.text_input(f"{t['tel']} (Prefijo: {prefijo})", placeholder="Solo números")
     tel_limpio = "".join(filter(str.isdigit, tel_raw))
-    if tel_raw and not tel_raw.isdigit():
-        st.error(f"⚠️ {t['error_tel']}")
     tel_final = f"{prefijo}{tel_limpio}"
 
 # --- CATEGORÍA 2: EQUIPO ---
@@ -90,10 +104,6 @@ st.markdown(f"**{t['urg_titulo']}**")
 
 opciones_urg = [t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']]
 urg_val = st.select_slider(t['urg_instruccion'], options=opciones_urg, value=t['u3'])
-
-colores_p = {t['u1']:"#ADD8E6", t['u2']:"#90C3D4", t['u3']:"#7AB1C5", t['u4']:"#C2A350", t['u5']:"#D69B28", t['u6']:"#F29400"}
-st.markdown(f"<style>div[role='slider'] {{ background-color: {colores_p.get(urg_val, '#7AB1C5')} !important; border: 2px solid white !important; }}</style>", unsafe_allow_html=True)
-
 falla_in = st.text_area(t['desc_instruccion'], placeholder=t['desc_placeholder'], key="desc_input")
 
 # MULTIMEDIA
@@ -109,8 +119,8 @@ st.markdown(f"""
     <div style="background-color: #f0f8ff; padding: 15px; border-radius: 10px; border-left: 5px solid #00549F;">
         <p style="color: #00549F; font-weight: bold; margin-bottom: 5px;">💡 {t.get('instruccion_final', '¿Cómo enviar su reporte?')}</p>
         <p style="font-size: 14px; color: #333;">
-            1. Use el botón <b>"+"</b> para añadir equipos a su lista si tiene varios.<br>
-            2. Use el botón <b>"Generar Ticket"</b> para enviar el reporte final (sea uno o varios).
+            1. Use el botón <b>"+"</b> si desea añadir varios equipos a este reporte.<br>
+            2. Use <b>"Generar Ticket"</b> para enviar el informe final al servicio técnico.
         </p>
     </div>
 """, unsafe_allow_html=True)
@@ -123,7 +133,7 @@ with col_btn1:
             st.session_state.lista_equipos.append({"ns": ns_in, "ref": ref_in, "urgencia": urg_val, "desc": falla_in})
             st.rerun()
         else:
-            st.warning("⚠️ Complete los datos del equipo antes de agregarlo.")
+            st.warning("⚠️ Complete los datos del equipo.")
 
 with col_btn2:
     if st.button(f"🚀 {t['btn_generar']}", type="primary", use_container_width=True):
@@ -133,12 +143,32 @@ with col_btn2:
         
         if empresa and email_usr and data_final:
             ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
+            
+            # ACCIÓN: ENVIAR EMAIL
             if enviar_email_outlook(empresa, contacto, proyecto_ub, data_final, email_usr, ticket_id, tel_final):
-                st.success(t['exito'])
-                st.balloons()
-                st.session_state.lista_equipos = []
+                
+                # ACCIÓN: GUARDAR EN GOOGLE SHEETS
+                try:
+                    nueva_fila = pd.DataFrame([{
+                        "ID_Ticket": ticket_id,
+                        "Fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "Empresa": empresa,
+                        "Contacto": contacto,
+                        "Equipos": len(data_final),
+                        "Estado": "🔴 Pendiente"
+                    }])
+                    df_actual = conn.read(worksheet="Sheet1")
+                    df_final = pd.concat([df_actual, nueva_fila], ignore_index=True)
+                    conn.update(worksheet="Sheet1", data=df_final)
+                    
+                    st.success(t['exito'])
+                    st.balloons()
+                    st.session_state.lista_equipos = []
+                    st.rerun()
+                except Exception as e:
+                    st.warning(f"Correo enviado, pero error al anotar en Excel: {e}")
         else:
-            st.error("⚠️ Error: Falta información crítica (Empresa, Email o datos del equipo).")
+            st.error("⚠️ Falta información crítica.")
 
 # TABLA DE RESUMEN
 if st.session_state.lista_equipos:
