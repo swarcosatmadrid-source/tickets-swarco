@@ -5,8 +5,10 @@ from datetime import datetime
 import os
 import sys
 
-# 1. CONFIGURACIÓN DE PÁGINA
+# 1. CONFIGURACIÓN DE PÁGINA (Debe ser lo primero)
 st.set_page_config(page_title="SWARCO SAT", layout="centered", page_icon="🚥")
+
+# 2. IMPORTACIONES
 sys.path.append(os.path.dirname(__file__))
 
 try:
@@ -20,16 +22,15 @@ try:
     cargar_estilos()
     conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
-    st.error(f"Error cargando módulos: {e}")
+    st.error(f"Error de sistema: {e}")
     st.stop()
 
-# --- 2. CONTROL DE ACCESO (LOGIN) ---
+# --- 3. CONTROL DE ACCESO ---
 if gestionar_acceso(conn):
     d_cli = st.session_state.datos_cliente
-    # Usamos castellano por defecto
     t = traducir_interfaz("Castellano")
 
-    # BARRA LATERAL
+    # SIDEBAR
     with st.sidebar:
         st.image("logo.png", use_container_width=True)
         st.markdown(f"### 👤 {d_cli.get('Contacto', 'Usuario')}")
@@ -39,115 +40,130 @@ if gestionar_acceso(conn):
             st.session_state.autenticado = False
             st.rerun()
 
-    # TÍTULO
-    st.markdown("<h2 style='text-align: center; color: #00549F;'>Portal de Reporte Técnico SAT</h2>", unsafe_allow_html=True)
+    # HEADER CON ESTILO SWARCO
+    st.markdown("""
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #00549F; font-weight: 800; margin-bottom: 0;">SWARCO TRAFFIC SPAIN</h1>
+            <h3 style="color: #F29400; font-weight: 400; margin-top: 0;">Portal de Reporte Técnico SAT</h3>
+        </div>
+    """, unsafe_allow_html=True)
 
     # --- SECCIÓN 1: DATOS DEL REPORTE ---
-    st.markdown('### 📍 UBICACIÓN Y CONTACTO')
-    c1, c2 = st.columns(2)
-    with c1:
-        st.text_input("Empresa", value=d_cli.get('Empresa', ''), disabled=True)
-        proyecto_ub = st.text_input("Proyecto / Ubicación exacta", placeholder="Ej: Túnel de la Castellana")
-    with c2:
+    st.markdown('<div class="section-header">📍 UBICACIÓN Y CONTACTO</div>', unsafe_allow_html=True)
+    
+    col_u1, col_u2 = st.columns(2)
+    with col_u1:
+        st.text_input("Empresa / Cliente", value=d_cli.get('Empresa', ''), disabled=True)
+        proyecto_ub = st.text_input("Proyecto / Ubicación exacta", placeholder="Ej: Túnel de la Castellana, Madrid")
+    
+    with col_u2:
         p_nombres = list(PAISES_DATA.keys())
         pais_sel = st.selectbox("País", p_nombres, index=p_nombres.index("Spain") if "Spain" in p_nombres else 0)
-        tel_raw = st.text_input("Móvil de contacto (sin prefijo)")
-        # Armamos el teléfono final con el prefijo del país seleccionado
-        tel_final = f"{PAISES_DATA[pais_sel]} {''.join(filter(str.isdigit, tel_raw))}"
+        tel_raw = st.text_input("Móvil de contacto (Sin prefijo)")
+        tel_final = f"{PAISES_DATA[pais_sel]} {tel_raw.strip()}"
 
     # --- SECCIÓN 2: DETALLES DEL EQUIPO ---
-    st.markdown('### ⚙️ DETALLES DEL EQUIPO')
-    st.info("Localice la pegatina plateada en el chasis del equipo.")
-    ce1, ce2 = st.columns(2)
-    with ce1:
-        ns_in = st.text_input("N.S. (Número de Serie)", placeholder="Ej: 2023-1234")
-    with ce2:
-        ref_in = st.text_input("Referencia (REF.)", placeholder="Ej: VMS-123-A")
-
-    # --- SECCIÓN 3: PRIORIDAD Y FALLO ---
-    st.markdown('### 🚨 DESCRIPCIÓN DE LA AVERÍA')
+    st.markdown('<div class="section-header">⚙️ DETALLES DEL EQUIPO</div>', unsafe_allow_html=True)
     
-    # Recuperamos el selector de urgencia (Prioridad)
-    opciones_urg = ["Baja", "Media", "Alta", "Crítica (Sistema fuera de servicio)"]
-    urg_val = st.select_slider("Seleccione la urgencia del reporte", options=opciones_urg, value="Media")
+    # El mensaje de la pegatina que me pediste
+    st.warning("👉 **IMPORTANTE:** Localice la **pegatina plateada** en el chasis del equipo para obtener los datos correctos.")
     
-    falla_in = st.text_area("¿Qué problema presenta el equipo?", placeholder="Describa el fallo detalladamente...", height=150)
+    
 
-    # RECUPERAMOS: Subida de archivos (Fotos/Videos)
-    st.markdown('### 📸 EVIDENCIAS')
-    archivos = st.file_uploader("Subir fotos o vídeos del equipo/avería", accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'mp4'])
+    col_e1, col_e2 = st.columns(2)
+    with col_e1:
+        ns_in = st.text_input("N.S. (Número de Serie)", placeholder="Ej: 2024-XXXX-XXXX")
+    with col_e2:
+        ref_in = st.text_input("Referencia (REF.)", placeholder="Ej: 102.405.001")
 
+    # --- SECCIÓN 3: DESCRIPCIÓN DE LA AVERÍA ---
+    st.markdown('<div class="section-header">🚨 DESCRIPCIÓN DE LA AVERÍA</div>', unsafe_allow_html=True)
+    
+    # Selector de Urgencia (Slider)
+    st.write("**Prioridad del reporte:**")
+    opciones_urg = ["Baja (Mantenimiento)", "Media (Fallo parcial)", "Alta (Afecta tráfico)", "Crítica (Sistema fuera de servicio)"]
+    urg_val = st.select_slider("Deslice para indicar la urgencia", options=opciones_urg, value="Media (Fallo parcial)")
+    
+    st.write("**Descripción detallada del fallo:**")
+    falla_in = st.text_area("¿Qué problema presenta el equipo?", 
+                           placeholder="Por favor, sea lo más descriptivo posible. Indique si el equipo tiene alimentación, si hay luces encendidas, etc.",
+                           height=150)
+
+    # SUBIDA DE ARCHIVOS
+    st.markdown('<div class="section-header">📸 EVIDENCIAS Y ADJUNTOS</div>', unsafe_allow_html=True)
+    st.caption("Suba fotos de la pegatina, del equipo o vídeos del fallo (Máximo 200MB por archivo)")
+    archivos = st.file_uploader("Arrastre aquí sus archivos", accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'mp4', 'pdf'])
+
+    # LÓGICA DE MULTI-EQUIPO
     if 'lista_equipos' not in st.session_state:
         st.session_state.lista_equipos = []
 
     st.divider()
-    
+
     # BOTONES DE ACCIÓN
-    col_add, col_gen = st.columns(2)
+    c_btn1, c_btn2 = st.columns(2)
     
-    with col_add:
-        if st.button("➕ Añadir otro equipo al mismo ticket", use_container_width=True):
+    with c_btn1:
+        if st.button("➕ AÑADIR OTRO EQUIPO A ESTE TICKET", use_container_width=True):
             if ns_in and falla_in:
                 st.session_state.lista_equipos.append({
                     "N.S.": ns_in, 
                     "REF": ref_in, 
-                    "Prioridad": urg_val, 
-                    "Descripción": falla_in
+                    "Urgencia": urg_val, 
+                    "Fallo": falla_in
                 })
-                st.success("✅ Equipo añadido a la lista. Puedes registrar otro arriba.")
+                st.success("✅ Equipo añadido a la lista. Los campos se han limpiado para el siguiente.")
                 st.rerun()
             else:
-                st.warning("⚠️ Escribe al menos el N.S. y el problema.")
+                st.error("⚠️ Debe rellenar el N.S. y la Descripción antes de añadir.")
 
-    with col_gen:
+    with c_btn2:
         if st.button("🚀 GENERAR TICKET FINAL", type="primary", use_container_width=True):
-            # Consolidamos los datos
-            equipos_finales = st.session_state.lista_equipos.copy()
-            if ns_in and falla_in: # Añade el que está en pantalla si no se le dio al botón de añadir
-                equipos_finales.append({
-                    "N.S.": ns_in, "REF": ref_in, "Prioridad": urg_val, "Descripción": falla_in
-                })
+            # Consolidar datos
+            data_envio = st.session_state.lista_equipos.copy()
+            if ns_in and falla_in:
+                data_envio.append({"N.S.": ns_in, "REF": ref_in, "Urgencia": urg_val, "Fallo": falla_in})
             
-            if equipos_finales and proyecto_ub:
+            if data_envio and proyecto_ub:
                 ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
                 
-                # ENVIAR EMAIL (Función que ya tienes configurada)
-                exito_email = enviar_email_outlook(
-                    d_cli['Empresa'], d_cli['Contacto'], proyecto_ub, 
-                    equipos_finales, d_cli['Email'], ticket_id, tel_final
-                )
+                # ENVÍO DE EMAIL
+                with st.spinner("Enviando reporte al servicio técnico..."):
+                    exito = enviar_email_outlook(
+                        d_cli['Empresa'], d_cli['Contacto'], proyecto_ub, 
+                        data_envio, d_cli['Email'], ticket_id, tel_final
+                    )
                 
-                if exito_email:
-                    # GUARDAR EN GOOGLE SHEETS (Pestaña Sheet1)
+                if exito:
+                    # GUARDADO EN EXCEL (Sheet1)
                     try:
-                        resumen_ns = ", ".join([e['N.S.'] for e in equipos_finales])
+                        resumen_ns = ", ".join([e['N.S.'] for e in data_envio])
                         nueva_fila = pd.DataFrame([{
                             "Ticket_ID": ticket_id, 
-                            "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                            "Fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
                             "Cliente": d_cli['Empresa'], 
-                            "Usuario": d_cli['Usuario'],
+                            "Contacto": d_cli['Contacto'],
                             "Ubicacion": proyecto_ub, 
-                            "Telefono": tel_final,
                             "Equipos": resumen_ns, 
-                            "Estado": "OPEN"
+                            "Estado": "ABIERTO"
                         }])
                         
                         df_h = conn.read(worksheet="Sheet1", ttl=0)
-                        df_updated = pd.concat([df_h, nueva_fila], ignore_index=True)
-                        conn.update(worksheet="Sheet1", data=df_updated)
+                        df_final = pd.concat([df_h, nueva_fila], ignore_index=True)
+                        conn.update(worksheet="Sheet1", data=df_final)
                         
-                        st.success(f"🎊 ¡Ticket {ticket_id} enviado con éxito!")
+                        st.success(f"🎊 Ticket **{ticket_id}** creado correctamente. Se ha enviado una copia a su email.")
                         st.balloons()
-                        st.session_state.lista_equipos = [] # Limpiamos lista
+                        st.session_state.lista_equipos = []
                     except Exception as e:
-                        st.error(f"Se envió el email pero falló el registro en Excel: {e}")
+                        st.error(f"Error al registrar en base de datos: {e}")
             else:
-                st.error("⚠️ Falta información crítica (Ubicación o datos del equipo).")
+                st.error("⚠️ Falta información necesaria para generar el ticket.")
 
-    # Visualización de equipos añadidos
+    # TABLA DE RESUMEN
     if st.session_state.lista_equipos:
-        st.subheader("📋 Equipos en este reporte:")
-        st.dataframe(pd.DataFrame(st.session_state.lista_equipos), use_container_width=True)
+        st.subheader("📋 Equipos incluidos en este reporte:")
+        st.table(pd.DataFrame(st.session_state.lista_equipos))
 
     st.markdown("<p style='text-align:center; color:#999; margin-top:50px;'>© 2024 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
 
