@@ -4,28 +4,29 @@ from email.mime.multipart import MIMEMultipart
 import streamlit as st
 
 def enviar_email_outlook(empresa, contacto, proyecto, lista_equipos, email_usuario, ticket_id, telefono):
-    # Configuración del servidor (Asegúrate de tener estos secretos en tu .toml)
+    # NOTA: Aunque la función se llame "enviar_email_outlook", ahora usa GMAIL
     try:
-        smtp_server = "smtp.office365.com"
+        # Configuración para GMAIL
+        smtp_server = "smtp.gmail.com"
         smtp_port = 587
+        
+        # Sacamos los datos de st.secrets (Asegúrate de que coincidan con tu archivo .toml)
         sender_email = st.secrets["emails"]["smtp_user"]
         sender_password = st.secrets["emails"]["smtp_pass"]
 
         # Crear el mensaje
         msg = MIMEMultipart()
         msg['From'] = sender_email
-        msg['To'] = "tu_correo_destino@swarco.com" # Cambia esto por el correo que recibe los SAT
-        msg['Subject'] = f"NUEVO TICKET SAT: {ticket_id} - {empresa}"
+        msg['To'] = "swarcosatmadrid@gmail.com" # El correo donde quieres recibir los tickets
+        msg['Subject'] = f"🚥 NUEVO TICKET SAT: {ticket_id} - {empresa}"
 
-        # Construcción del cuerpo del mensaje en HTML para que se vea Pro
+        # Cuerpo de equipos (Blindado contra errores de nombres)
         cuerpo_equipos = ""
         for i, equipo in enumerate(lista_equipos, 1):
-            # BUSQUEDA BLINDADA: Busca 'N.S.', luego 'ns', y si no hay nada pone 'No indicado'
-            # Esto mata el error 'ns' para siempre
-            sn = equipo.get('N.S.', equipo.get('ns', equipo.get('SN', 'No indicado')))
-            ref = equipo.get('REF', equipo.get('ref', 'No indicado'))
-            urg = equipo.get('Prioridad', equipo.get('urgencia', 'Normal'))
-            desc = equipo.get('Descripción', equipo.get('desc', 'Sin descripción'))
+            sn = equipo.get('N.S.', 'No indicado')
+            ref = equipo.get('REF', 'No indicado')
+            urg = equipo.get('Prioridad', 'Normal')
+            desc = equipo.get('Descripción', 'Sin descripción')
 
             cuerpo_equipos += f"""
             <div style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-left: 5px solid #F29400;">
@@ -43,56 +44,29 @@ def enviar_email_outlook(empresa, contacto, proyecto, lista_equipos, email_usuar
         <html>
         <body style="font-family: sans-serif; color: #333;">
             <h2 style="color: #00549F;">Reporte Técnico SAT - SWARCO</h2>
-            <p>Se ha generado un nuevo ticket con la siguiente información:</p>
-            
+            <p>Se ha generado un nuevo ticket con el ID: <b>{ticket_id}</b></p>
             <table style="width: 100%; border-collapse: collapse;">
-                <tr style="background-color: #f8f8f8;">
-                    <td style="padding: 10px; border: 1px solid #ddd;"><b>Ticket ID:</b></td>
-                    <td style="padding: 10px; border: 1px solid #ddd;">{ticket_id}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 10px; border: 1px solid #ddd;"><b>Cliente / Empresa:</b></td>
-                    <td style="padding: 10px; border: 1px solid #ddd;">{empresa}</td>
-                </tr>
-                <tr style="background-color: #f8f8f8;">
-                    <td style="padding: 10px; border: 1px solid #ddd;"><b>Contacto:</b></td>
-                    <td style="padding: 10px; border: 1px solid #ddd;">{contacto}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 10px; border: 1px solid #ddd;"><b>Email:</b></td>
-                    <td style="padding: 10px; border: 1px solid #ddd;">{email_usuario}</td>
-                </tr>
-                <tr style="background-color: #f8f8f8;">
-                    <td style="padding: 10px; border: 1px solid #ddd;"><b>Teléfono:</b></td>
-                    <td style="padding: 10px; border: 1px solid #ddd;">{telefono}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 10px; border: 1px solid #ddd;"><b>Ubicación/Proyecto:</b></td>
-                    <td style="padding: 10px; border: 1px solid #ddd;">{proyecto}</td>
-                </tr>
+                <tr style="background-color: #f8f8f8;"><td style="padding:10px; border:1px solid #ddd;"><b>Cliente:</b></td><td style="padding:10px; border:1px solid #ddd;">{empresa}</td></tr>
+                <tr><td style="padding:10px; border:1px solid #ddd;"><b>Contacto:</b></td><td style="padding:10px; border:1px solid #ddd;">{contacto}</td></tr>
+                <tr style="background-color: #f8f8f8;"><td style="padding:10px; border:1px solid #ddd;"><b>Ubicación:</b></td><td style="padding:10px; border:1px solid #ddd;">{proyecto}</td></tr>
+                <tr><td style="padding:10px; border:1px solid #ddd;"><b>Teléfono:</b></td><td style="padding:10px; border:1px solid #ddd;">{telefono}</td></tr>
             </table>
-
             <h3 style="color: #00549F; margin-top: 20px;">Detalle de los Equipos:</h3>
             {cuerpo_equipos}
-
-            <p style="font-size: 12px; color: #999; margin-top: 30px;">
-                © 2026 SWARCO TRAFFIC SPAIN | Enviado desde el Portal SAT.
-            </p>
         </body>
         </html>
         """
-
         msg.attach(MIMEText(html, 'html'))
 
-        # Conexión al servidor y envío
+        # Conexión y envío
         server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
+        server.starttls() # Seguridad necesaria para Gmail
         server.login(sender_email, sender_password)
         server.sendmail(sender_email, msg['To'], msg.as_string())
         server.quit()
-
         return True
 
     except Exception as e:
-        print(f"Error enviando correo: {e}")
+        st.error(f"Error enviando correo: {e}")
         return False
+
