@@ -46,7 +46,7 @@ if gestionar_acceso(conn):
         </div>
     """, unsafe_allow_html=True)
 
-    # --- BLOQUE CSS SLIDER ---
+    # --- CSS SLIDER ---
     st.markdown("""
         <style>
         .stSlider > div [data-baseweb="slider"] {
@@ -57,8 +57,7 @@ if gestionar_acceso(conn):
             background-color: transparent !important;
         }
         [data-testid="stTickBarMin"], [data-testid="stTickBarMax"] {
-            color: #00549F !important;
-            font-weight: bold !important;
+            color: #00549F !important; font-weight: bold !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -104,39 +103,28 @@ if gestionar_acceso(conn):
     if 'lista_equipos' not in st.session_state:
         st.session_state.lista_equipos = []
 
-    # --- LÓGICA DINÁMICA DE BOTONES ---
+    # --- BOTONES ---
     texto_btn_add = "➕ Registrar Dispositivo" if not st.session_state.lista_equipos else f"➕ {t['btn_agregar']}"
-
-    # --- NOTA EXPLICATIVA ---
+    
     st.markdown("---")
-    st.markdown(f"""
-        <div style="background-color: #f0f8ff; padding: 15px; border-radius: 10px; border-left: 5px solid #00549F;">
-            <p style="color: #00549F; font-weight: bold; margin-bottom: 5px;">💡 ¿Cómo procesar su solicitud?</p>
-            <p style="font-size: 14px; color: #333;">
-                1. Complete los datos técnicos y pulse <b>"{texto_btn_add}"</b>.<br>
-                2. Verifique en la <b>tabla inferior</b> que la información es correcta.<br>
-                3. Una vez validado, pulse <b>"Generar Ticket Final"</b>.
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
-
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
         if st.button(texto_btn_add, use_container_width=True):
-            if len(ns_in) >= 3 and len(falla_in) >= 10:
+            if ns_in and falla_in:
+                # AQUÍ ESTÁ EL TRUCO: Guardar con el nombre exacto
                 st.session_state.lista_equipos.append({
-                    "N.S.": ns_in, 
-                    "REF": ref_in, 
-                    "Prioridad": urg_val, 
-                    "Descripción": falla_in
+                    "N.S.": str(ns_in), 
+                    "REF": str(ref_in), 
+                    "Prioridad": str(urg_val), 
+                    "Descripción": str(falla_in)
                 })
                 st.rerun()
             else:
-                st.warning("⚠️ Complete N.S. y Descripción antes de registrar.")
+                st.warning("⚠️ Complete los campos obligatorios.")
 
-    # --- TABLA Y ENVÍO FINAL ---
+    # --- TABLA Y PROCESAMIENTO ---
     if st.session_state.lista_equipos:
-        st.markdown("### 📋 Equipos registrados en esta solicitud")
+        st.markdown("### 📋 Resumen del Reporte")
         st.table(pd.DataFrame(st.session_state.lista_equipos))
         
         with col_btn2:
@@ -144,35 +132,36 @@ if gestionar_acceso(conn):
                 if proyecto_ub:
                     ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
                     try:
-                        # Preparamos las listas para columnas separadas
-                        str_ns = ", ".join([str(e['N.S.']) for e in st.session_state.lista_equipos])
-                        str_ref = ", ".join([str(e['REF']) for e in st.session_state.lista_equipos])
+                        # 1. Extraer datos con validación para evitar el error 'ns'
+                        # Usamos e.get('N.S.') para que si no existe, no explote
+                        resumen_ns = ", ".join([str(e.get('N.S.', '')) for e in st.session_state.lista_equipos])
+                        resumen_ref = ", ".join([str(e.get('REF', '')) for e in st.session_state.lista_equipos])
                         
                         payload = {
                             "Ticket_ID": str(ticket_id),
                             "Fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
                             "Cliente": str(empresa),
                             "Ubicacion": str(proyecto_ub),
-                            "NS": str_ns,     # Campo separado para N.S.
-                            "REF": str_ref,   # Campo separado para REF
-                            "Urgencia_Max": str(st.session_state.lista_equipos[-1]['Prioridad']),
+                            "NS": resumen_ns,     # Para el Script
+                            "REF": resumen_ref,   # Para el Script
+                            "Urgencia_Max": str(st.session_state.lista_equipos[-1].get('Prioridad', '')),
                             "Estado": "OPEN"
                         }
                         
                         resp = requests.post(URL_SCRIPT, json=payload)
                         
                         if "Éxito_Ticket" in resp.text:
+                            # 2. Enviar correo (Pasamos la lista tal cual)
                             if enviar_email_outlook(empresa, contacto, proyecto_ub, st.session_state.lista_equipos, email_usr, ticket_id, tel_final):
-                                st.success("✅ ¡Reporte enviado y registrado exitosamente!")
+                                st.success("✅ ¡Reporte enviado!")
                                 st.balloons()
                                 st.session_state.lista_equipos = []
                                 st.rerun()
                         else:
-                            st.error(f"Error en base de datos: {resp.text}")
+                            st.error(f"Error en BD: {resp.text}")
                     except Exception as e:
-                        st.error(f"Error: {e}")
-                else:
-                    st.error("⚠️ Indique la ubicación del proyecto.")
+                        # Este es el error que te salía: lo capturamos mejor
+                        st.error(f"Error procesando datos: {e}")
         
         if st.button("🗑️ Vaciar Lista"):
             st.session_state.lista_equipos = []
@@ -186,5 +175,4 @@ if gestionar_acceso(conn):
         st.session_state.autenticado = False
         st.rerun()
 
-    st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2026 SWARCO TRAFFIC SPAIN</p>", unsafe_allow_html=True)
 
