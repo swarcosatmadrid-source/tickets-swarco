@@ -41,7 +41,7 @@ def gestionar_acceso(conn):
             r_m = st.text_input("Email")
             
             if st.button("Registrar Ahora", use_container_width=True):
-                URL_BRIDGE = "TU_URL_DE_APPS_SCRIPT_AQUI" # <--- PON LA NUEVA URL AQUÍ
+                URL_BRIDGE = "https://script.google.com/macros/s/AKfycbyDpHS4nU16O7YyvABvmbFYHTLv2e2J8vrpSD-iCmamjmS4Az6p9iZNUmVEwzMVyzx9/exec" # <--- PON LA NUEVA URL AQUÍ
                 payload = {"Usuario": r_u, "Clave": r_p, "Empresa": r_e, "Contacto": r_c, "Email": r_m}
                 
                 try:
