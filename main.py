@@ -113,9 +113,9 @@ if gestionar_acceso(conn):
         <div style="background-color: #f0f8ff; padding: 15px; border-radius: 10px; border-left: 5px solid #00549F;">
             <p style="color: #00549F; font-weight: bold; margin-bottom: 5px;">💡 ¿Cómo procesar su solicitud?</p>
             <p style="font-size: 14px; color: #333;">
-                1. Complete los datos técnicos y pulse <b>"{texto_btn_add}"</b> para incluirlo en el reporte.<br>
-                2. Verifique en la <b>tabla inferior</b> que la información registrada es correcta.<br>
-                3. Una vez validado, pulse <b>"Generar Ticket Final"</b> para dar curso a su reporte.
+                1. Complete los datos técnicos y pulse <b>"{texto_btn_add}"</b>.<br>
+                2. Verifique en la <b>tabla inferior</b> que la información es correcta.<br>
+                3. Una vez validado, pulse <b>"Generar Ticket Final"</b>.
             </p>
         </div>
     """, unsafe_allow_html=True)
@@ -124,7 +124,6 @@ if gestionar_acceso(conn):
     with col_btn1:
         if st.button(texto_btn_add, use_container_width=True):
             if len(ns_in) >= 3 and len(falla_in) >= 10:
-                # AQUÍ SE GUARDA COMO 'N.S.'
                 st.session_state.lista_equipos.append({
                     "N.S.": ns_in, 
                     "REF": ref_in, 
@@ -145,15 +144,17 @@ if gestionar_acceso(conn):
                 if proyecto_ub:
                     ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
                     try:
-                        # RESUMEN CORREGIDO: Usando 'N.S.' en lugar de 'ns'
-                        resumen_ns = " | ".join([f"SN:{e['N.S.']} (Ref:{e['REF']})" for e in st.session_state.lista_equipos])
+                        # Preparamos las listas para columnas separadas
+                        str_ns = ", ".join([str(e['N.S.']) for e in st.session_state.lista_equipos])
+                        str_ref = ", ".join([str(e['REF']) for e in st.session_state.lista_equipos])
                         
                         payload = {
                             "Ticket_ID": str(ticket_id),
                             "Fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
                             "Cliente": str(empresa),
                             "Ubicacion": str(proyecto_ub),
-                            "Equipos": str(resumen_ns),
+                            "NS": str_ns,     # Campo separado para N.S.
+                            "REF": str_ref,   # Campo separado para REF
                             "Urgencia_Max": str(st.session_state.lista_equipos[-1]['Prioridad']),
                             "Estado": "OPEN"
                         }
@@ -169,7 +170,7 @@ if gestionar_acceso(conn):
                         else:
                             st.error(f"Error en base de datos: {resp.text}")
                     except Exception as e:
-                        st.error(f"Error de conexión: {e}")
+                        st.error(f"Error: {e}")
                 else:
                     st.error("⚠️ Indique la ubicación del proyecto.")
         
@@ -185,5 +186,5 @@ if gestionar_acceso(conn):
         st.session_state.autenticado = False
         st.rerun()
 
-    st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2026 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2026 SWARCO TRAFFIC SPAIN</p>", unsafe_allow_html=True)
 
