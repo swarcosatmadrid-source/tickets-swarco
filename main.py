@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 import os
 import sys
-import requests # Necesario para la conexión con el Script
+import requests 
 
 # 1. CONFIGURACIÓN Y RUTAS
 sys.path.append(os.path.dirname(__file__))
@@ -16,7 +16,7 @@ from correo import enviar_email_outlook
 from streamlit_gsheets import GSheetsConnection
 from usuarios import gestionar_acceso
 
-# URL DE TU GOOGLE APPS SCRIPT (Ya integrada)
+# URL DE TU GOOGLE APPS SCRIPT
 URL_SCRIPT = "https://script.google.com/macros/s/AKfycbyDpHS4nU16O7YyvABvmbFYHTLv2e2J8vrpSD-iCmamjmS4Az6p9iZNUmVEwzMVyzx9/exec"
 
 st.set_page_config(page_title="SWARCO SAT | Portal Técnico", layout="centered", page_icon="🚥")
@@ -124,7 +124,13 @@ if gestionar_acceso(conn):
     with col_btn1:
         if st.button(texto_btn_add, use_container_width=True):
             if len(ns_in) >= 3 and len(falla_in) >= 10:
-                st.session_state.lista_equipos.append({"N.S.": ns_in, "REF": ref_in, "Prioridad": urg_val, "Descripción": falla_in})
+                # AQUÍ SE GUARDA COMO 'N.S.'
+                st.session_state.lista_equipos.append({
+                    "N.S.": ns_in, 
+                    "REF": ref_in, 
+                    "Prioridad": urg_val, 
+                    "Descripción": falla_in
+                })
                 st.rerun()
             else:
                 st.warning("⚠️ Complete N.S. y Descripción antes de registrar.")
@@ -139,10 +145,9 @@ if gestionar_acceso(conn):
                 if proyecto_ub:
                     ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
                     try:
-                        # Resumen técnico
+                        # RESUMEN CORREGIDO: Usando 'N.S.' en lugar de 'ns'
                         resumen_ns = " | ".join([f"SN:{e['N.S.']} (Ref:{e['REF']})" for e in st.session_state.lista_equipos])
                         
-                        # Datos para el Script de Google
                         payload = {
                             "Ticket_ID": str(ticket_id),
                             "Fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -153,7 +158,6 @@ if gestionar_acceso(conn):
                             "Estado": "OPEN"
                         }
                         
-                        # Envío al Script
                         resp = requests.post(URL_SCRIPT, json=payload)
                         
                         if "Éxito_Ticket" in resp.text:
