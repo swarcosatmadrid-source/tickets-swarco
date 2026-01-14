@@ -46,7 +46,7 @@ if gestionar_acceso(conn):
         </div>
     """, unsafe_allow_html=True)
 
-    # --- CSS SLIDER ---
+    # --- BLOQUE CSS SLIDER (EL DEGRADADO) ---
     st.markdown("""
         <style>
         .stSlider > div [data-baseweb="slider"] {
@@ -103,15 +103,26 @@ if gestionar_acceso(conn):
     if 'lista_equipos' not in st.session_state:
         st.session_state.lista_equipos = []
 
-    # --- BOTONES ---
+    # --- BOTONES DINÁMICOS ---
     texto_btn_add = "➕ Registrar Dispositivo" if not st.session_state.lista_equipos else f"➕ {t['btn_agregar']}"
     
+    # --- NOTA EXPLICATIVA ---
     st.markdown("---")
+    st.markdown(f"""
+        <div style="background-color: #f0f8ff; padding: 15px; border-radius: 10px; border-left: 5px solid #00549F;">
+            <p style="color: #00549F; font-weight: bold; margin-bottom: 5px;">💡 ¿Cómo procesar su solicitud?</p>
+            <p style="font-size: 14px; color: #333;">
+                1. Complete los datos técnicos y pulse <b>"{texto_btn_add}"</b>.<br>
+                2. Verifique en la <b>tabla inferior</b> que la información es correcta.<br>
+                3. Una vez validado, pulse <b>"Generar Ticket Final"</b>.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
         if st.button(texto_btn_add, use_container_width=True):
-            if ns_in and falla_in:
-                # AQUÍ ESTÁ EL TRUCO: Guardar con el nombre exacto
+            if len(ns_in) >= 3 and len(falla_in) >= 10:
                 st.session_state.lista_equipos.append({
                     "N.S.": str(ns_in), 
                     "REF": str(ref_in), 
@@ -120,30 +131,31 @@ if gestionar_acceso(conn):
                 })
                 st.rerun()
             else:
-                st.warning("⚠️ Complete los campos obligatorios.")
+                st.warning("⚠️ Complete N.S. y Descripción antes de registrar.")
 
-    # --- TABLA Y PROCESAMIENTO ---
+    # --- TABLA Y ENVÍO FINAL ---
     if st.session_state.lista_equipos:
-        st.markdown("### 📋 Resumen del Reporte")
+        st.markdown("### 📋 Equipos registrados en esta solicitud")
         st.table(pd.DataFrame(st.session_state.lista_equipos))
         
         with col_btn2:
             if st.button(f"🚀 {t['btn_generar']}", type="primary", use_container_width=True):
                 if proyecto_ub:
                     ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
+                    ahora = datetime.now()
                     try:
-                        # 1. Extraer datos con validación para evitar el error 'ns'
-                        # Usamos e.get('N.S.') para que si no existe, no explote
+                        # Extraemos datos blindados contra el error 'ns'
                         resumen_ns = ", ".join([str(e.get('N.S.', '')) for e in st.session_state.lista_equipos])
                         resumen_ref = ", ".join([str(e.get('REF', '')) for e in st.session_state.lista_equipos])
                         
                         payload = {
                             "Ticket_ID": str(ticket_id),
-                            "Fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                            "Fecha": ahora.strftime("%d/%m/%Y"), # FECHA SEPARADA
+                            "Hora": ahora.strftime("%H:%M"),     # HORA SEPARADA
                             "Cliente": str(empresa),
                             "Ubicacion": str(proyecto_ub),
-                            "NS": resumen_ns,     # Para el Script
-                            "REF": resumen_ref,   # Para el Script
+                            "NS": resumen_ns,
+                            "REF": resumen_ref,
                             "Urgencia_Max": str(st.session_state.lista_equipos[-1].get('Prioridad', '')),
                             "Estado": "OPEN"
                         }
@@ -151,16 +163,15 @@ if gestionar_acceso(conn):
                         resp = requests.post(URL_SCRIPT, json=payload)
                         
                         if "Éxito_Ticket" in resp.text:
-                            # 2. Enviar correo (Pasamos la lista tal cual)
+                            # OJO: Si falla aquí con error 'ns', es el archivo correo.py
                             if enviar_email_outlook(empresa, contacto, proyecto_ub, st.session_state.lista_equipos, email_usr, ticket_id, tel_final):
-                                st.success("✅ ¡Reporte enviado!")
+                                st.success("✅ ¡Reporte enviado y registrado exitosamente!")
                                 st.balloons()
                                 st.session_state.lista_equipos = []
                                 st.rerun()
                         else:
-                            st.error(f"Error en BD: {resp.text}")
+                            st.error(f"Error en base de datos: {resp.text}")
                     except Exception as e:
-                        # Este es el error que te salía: lo capturamos mejor
                         st.error(f"Error procesando datos: {e}")
         
         if st.button("🗑️ Vaciar Lista"):
@@ -174,5 +185,7 @@ if gestionar_acceso(conn):
     if st.button(f"🚪 {t['btn_salir']}", use_container_width=True):
         st.session_state.autenticado = False
         st.rerun()
+
+    st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2026 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
 
 
