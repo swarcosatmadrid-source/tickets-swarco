@@ -4,119 +4,139 @@ from datetime import datetime
 import os
 import sys
 from streamlit_gsheets import GSheetsConnection
+from idiomas import traducir_interfaz # Importamos tu traductor
 
 # --- 1. CONFIGURACIÓN DE RUTAS Y MÓDULOS ---
 sys.path.append(os.path.dirname(__file__))
 
 try:
-    from usuarios import gestionar_acceso, interfaz_registro_legal
-    # Asegúrate de tener estos archivos o comenta las líneas si no los usas aún
-    # from estilos import cargar_estilos 
+    import usuarios # Cambiamos la importación para manejar mejor las funciones
 except Exception as e:
     st.error(f"❌ Error al cargar módulos: {e}")
     st.stop()
 
 # --- 2. CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="SWARCO SAT | Portal de Tickets", layout="centered", page_icon="🚥")
-
-# Conexión a Google Sheets
-conn = st.connection("gsheets", type=GSheetsConnection)
+st.set_page_config(page_title="SWARCO SAT | Portal", layout="centered", page_icon="🚥")
 
 # --- 3. GESTIÓN DE SESIÓN (ESTADO) ---
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
+if 'mostrar_registro' not in st.session_state:
+    st.session_state.mostrar_registro = False
+if 'idioma' not in st.session_state:
+    st.session_state.idioma = "Castellano"
 if 'lista_equipos' not in st.session_state:
     st.session_state.lista_equipos = []
 if 'ticket_enviado' not in st.session_state:
     st.session_state.ticket_enviado = False
 
-# --- 4. CONTROL DE ACCESO (LOGIN / REGISTRO) ---
+# Conexión a Google Sheets
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# --- 4. SELECTOR DE IDIOMA Y TRADUCCIONES ---
 if not st.session_state.autenticado:
-    st.image("logo.png", width=250) # Asegúrate de tener el logo en la carpeta
-    tab_login, tab_reg = st.tabs(["🔐 Iniciar Sesión", "📝 Registro de Técnico"])
+    st.sidebar.markdown("### 🌐 Language / Idioma")
+    st.session_state.idioma = st.sidebar.radio(
+        "Select / Seleccione:", 
+        ["Castellano", "English"], 
+        index=0 if st.session_state.idioma == "Castellano" else 1,
+        key="lang_selector"
+    )
+
+t = traducir_interfaz(st.session_state.idioma)
+
+# --- 5. CONTROL DE ACCESO (LOGIN / REGISTRO) ---
+if not st.session_state.autenticado:
+    # SI EL USUARIO PIDE REGISTRO (Pantalla secundaria)
+    if st.session_state.mostrar_registro:
+        usuarios.interfaz_registro_legal(conn)
+        if st.button("⬅️ " + ("Volver" if st.session_state.idioma == "Castellano" else "Back")):
+            st.session_state.mostrar_registro = False
+            st.rerun()
     
-    with tab_login:
-        if gestionar_acceso(conn):
+    # PANTALLA DE LOGIN (Principal)
+    else:
+        st.image("logo.png", width=250) # Asegúrate de tener el logo
+        if usuarios.gestionar_acceso(conn):
+            st.rerun()
+        
+        st.markdown("---")
+        if st.button(t.get("btn_ir_registro", "No tengo cuenta, quiero registrarme"), use_container_width=True):
+            st.session_state.mostrar_registro = True
             st.rerun()
             
-    with tab_reg:
-        interfaz_registro_legal(conn)
-        
-    st.stop() # Bloqueo total si no está logueado
+    st.stop() 
 
-# --- 5. INTERFAZ PRINCIPAL (SOLO USUARIOS AUTENTICADOS) ---
+# --- 6. INTERFAZ PRINCIPAL (AUTENTICADO) ---
 d_cli = st.session_state.get('datos_cliente', {})
 
-# Encabezado con datos del usuario logueado
 st.sidebar.image("logo.png", width=150)
-st.sidebar.success(f"Usuario: {d_cli.get('Contacto')}")
-st.sidebar.info(f"Empresa: {d_cli.get('Empresa')}")
+st.sidebar.success(f"{t.get('contacto', 'Usuario')}: {d_cli.get('Contacto')}")
+st.sidebar.info(f"{t.get('cliente', 'Empresa')}: {d_cli.get('Empresa')}")
 
-if st.sidebar.button("Cerrar Sesión"):
+if st.sidebar.button(t.get("btn_salir", "SALIR")):
     st.session_state.autenticado = False
     st.rerun()
 
-st.title("🎫 Generador de Reportes SAT")
+st.title(f"🎫 {t.get('titulo_portal', 'Generador de Reportes SAT')}")
 st.markdown("---")
 
-# PANTALLA DE ÉXITO POST-ENVÍO
 if st.session_state.ticket_enviado:
-    st.balloons()
-    st.success("✅ Ticket enviado correctamente al sistema central.")
-    if st.button("Crear nuevo ticket"):
+    st.success(t.get("exito", "✅ Ticket enviado correctamente."))
+    if st.button("Crear nuevo ticket" if st.session_state.idioma == "Castellano" else "New ticket"):
         st.session_state.ticket_enviado = False
         st.session_state.lista_equipos = []
         st.rerun()
     st.stop()
 
-# --- 6. FORMULARIO DE TICKET (DATOS BLOQUEADOS POR SEGURIDAD) ---
-st.subheader("📍 Datos del Servicio")
+# --- 7. FORMULARIO DE TICKET ---
+st.subheader(f"📍 {t.get('cat1', 'Datos del Servicio')}")
 col1, col2 = st.columns(2)
 
 with col1:
-    # Estos campos vienen del login, el usuario NO puede cambiarlos
-    st.text_input("Empresa Solicitante", value=d_cli.get('Empresa'), disabled=True)
-    proyecto = st.text_input("Proyecto / Ubicación Exacta *", placeholder="Ej: Túnel de Somport")
+    st.text_input(t.get("cliente", "Empresa"), value=d_cli.get('Empresa'), disabled=True)
+    proyecto = st.text_input(t.get("proyecto", "Ubicación") + " *")
 
 with col2:
-    st.text_input("Email de Confirmación", value=d_cli.get('Email'), disabled=True)
-    telefono = st.text_input("Teléfono de contacto móvil *")
+    st.text_input(t.get("email", "Email"), value=d_cli.get('Email'), disabled=True)
+    telefono = st.text_input(t.get("tel", "Teléfono") + " *")
 
 st.markdown("---")
 
-# --- 7. CARGA DE EQUIPOS ---
-st.subheader("🛠️ Detalle de Equipos y Averías")
+# --- 8. CARGA DE EQUIPOS Y ARCHIVOS ---
+st.subheader(f"🛠️ {t.get('cat2', 'Detalle de Equipos')}")
 ce1, ce2 = st.columns(2)
 with ce1:
-    ns_equipo = st.text_input("Número de Serie (N/S) *")
+    ns_equipo = st.text_input(t.get("ns_titulo", "N.S.") + " *")
 with ce2:
-    referencia = st.text_input("Referencia del Equipo (Opcional)")
+    referencia = st.text_input("Referencia / Ref")
 
-falla_desc = st.text_area("Descripción de la avería o síntoma *", placeholder="Describa brevemente qué sucede...")
+falla_desc = st.text_area(t.get("desc_instruccion", "Descripción") + " *")
 
-if st.button("➕ Añadir Equipo a la Lista"):
+# ADJUNTAR ARCHIVOS (Fotos/Vídeos)
+archivos = st.file_uploader(t.get("fotos", "Adjuntar archivos"), accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'mp4', 'pdf'])
+
+if st.button(t.get("btn_agregar", "➕ Añadir Equipo")):
     if ns_equipo and falla_desc:
         st.session_state.lista_equipos.append({
             "N.S.": ns_equipo,
             "REF": referencia,
-            "Avería": falla_desc
+            "Avería": falla_desc,
+            "Adjuntos": len(archivos) if archivos else 0
         })
         st.toast("Equipo añadido")
     else:
-        st.error("⚠️ El N/S y la descripción son obligatorios.")
+        st.error("⚠️ Error")
 
-# TABLA DE RESUMEN
+# TABLA Y ENVÍO
 if st.session_state.lista_equipos:
-    st.write("### Equipos en este reporte:")
     df_equipos = pd.DataFrame(st.session_state.lista_equipos)
     st.table(df_equipos)
     
-    if st.button("🚀 GENERAR Y ENVIAR TICKET FINAL", type="primary", use_container_width=True):
+    if st.button(t.get("btn_generar", "🚀 ENVIAR TICKET"), type="primary", use_container_width=True):
         if not proyecto or not telefono:
-            st.error("⚠️ Por favor, complete la ubicación y el teléfono.")
+            st.error("⚠️")
         else:
-            # Aquí irá la llamada a tu función de envío de correo/script
-            # Por ahora, simulamos el éxito:
+            # Lógica de envío final
             st.session_state.ticket_enviado = True
             st.rerun()
-
