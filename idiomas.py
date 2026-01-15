@@ -1,30 +1,43 @@
 # ARCHIVO: idiomas.py
-# VERSIÓN: v1.2 (Corrección de Códigos ISO)
+# VERSIÓN: v1.3 (Con Textos de Ayuda y Legal)
 # FECHA: 15-Ene-2026
-# DESCRIPCIÓN: Mapea códigos conflictivos (como he->iw) para que Google Translator no falle.
 
-import streamlit as st
 from deep_translator import GoogleTranslator
+import streamlit as st
 
 def traducir_interfaz(codigo_iso):
-    # 1. TUS TRADUCCIONES MANUALES (El ADN sagrado)
     traducciones_maestras = {
         "es": {
+            # --- TÍTULOS DE PASOS CORREGIDOS ---
+            "reg_tit": "📝 Registro de Nuevo Usuario / Equipo",
+            "p1_tit": "1. Identificación Personal",
+            "p2_tit": "2. Ubicación y Contacto",
+            "p3_tit": "3. Seguridad de la Cuenta",
+            "p4_tit": "4. Validación Legal",
+            
+            # --- MANUALITO (AYUDAS) ---
+            "guia_titulo": "📘 Guía de Llenado (Clic para desplegar)",
+            "guia_desc": "• Todos los campos marcados con (*) son obligatorios.\n• El teléfono añade el prefijo del país automáticamente.\n• La contraseña debe tener mayúsculas y números.",
+            "help_empresa": "Nombre fiscal de su compañía u organismo.",
+            "help_user": "Este será su ID único para iniciar sesión.",
+            "help_pass": "Mínimo 8 caracteres, 1 mayúscula, 1 número.",
+            
+            # --- LEGAL ---
+            "acepto": "He leído y acepto la ",
+            "link_texto": "Política de Privacidad y Protección de Datos",
+            "msg_legal": "Consulte nuestro documento PDF para saber cómo tratamos sus datos.",
+
+            # --- RESTO DEL SISTEMA (Lo de siempre) ---
             "login_tit": "🔐 Acceso Usuarios Registrados",
-            "user_id": "Usuario / ID de Equipo",
+            "user_id": "Usuario / ID",
             "pass": "Contraseña",
             "btn_entrar": "INGRESAR AL SISTEMA",
             "btn_ir_registro": "No tengo cuenta, quiero registrarme",
-            "reg_tit": "📝 Registro de Nuevo Usuario / Equipo",
-            "p1_tit": "Paso 1: Identificación",
-            "p2_tit": "Paso 2: Seguridad",
-            "p3_tit": "Paso 3: Verificación y Legal",
             "match": "✅ Las claves coinciden",
             "no_match": "⚠️ Las claves NO coinciden",
-            "exito_reg": "✨ ¡Usuario creado con éxito! Bienvenidos a Swarco Spain SAT.",
+            "exito_reg": "✨ ¡Usuario creado con éxito! Revise su correo.",
             "redir_login": "🔄 Redirigiendo...",
             "error_campos": "❌ Rellene todos los campos (*)",
-            "consejo": "💡 Los campos se validan al cambiar de casilla.",
             "titulo_portal": "Portal de Reporte Técnico SAT",
             "cat1": "Datos del Servicio",
             "cat2": "Detalle de Equipos",
@@ -39,59 +52,71 @@ def traducir_interfaz(codigo_iso):
             "btn_generar": "GENERAR TICKET",
             "btn_salir": "SALIR",
             "exito": "✅ Ticket enviado correctamente.",
-            # Claves extra para el registro
             "nombre": "Nombre",
             "apellido": "Apellido",
             "pais": "País",
             "pass_rep": "Repetir Contraseña",
-            "acepto": "Acepto Política de Privacidad",
-            "btn_volver": "VOLVER"
+            "btn_volver": "VOLVER",
+            "btn_generar": "REGISTRAR"
         },
         "en": {
+            "reg_tit": "📝 New User Registration",
+            "p1_tit": "1. Personal Identification",
+            "p2_tit": "2. Location & Contact",
+            "p3_tit": "3. Account Security",
+            "p4_tit": "4. Legal Validation",
+            
+            "guia_titulo": "📘 User Guide (Click to expand)",
+            "guia_desc": "• All fields with (*) are mandatory.\n• Phone prefix is added automatically.\n• Password must include uppercase and numbers.",
+            "help_empresa": "Fiscal name of your company.",
+            "help_user": "This will be your unique Login ID.",
+            "help_pass": "Min 8 chars, 1 uppercase, 1 number.",
+
+            "acepto": "I have read and accept the ",
+            "link_texto": "Privacy Policy & Data Protection",
+            "msg_legal": "Check our PDF document regarding data treatment.",
+
             "login_tit": "🔐 Registered User Access",
-            "user_id": "Username / Team ID",
+            "user_id": "Username / ID",
             "pass": "Password",
             "btn_entrar": "LOGIN",
             "btn_ir_registro": "Sign up here",
-            "reg_tit": "📝 New User Registration",
-            "p1_tit": "Step 1: Identification",
-            "p2_tit": "Step 2: Security",
-            "p3_tit": "Step 3: Verification",
             "match": "✅ Passwords match",
             "no_match": "⚠️ Passwords do not match",
-            "exito_reg": "✨ User created successfully!",
+            "exito_reg": "✨ User created! Check your email.",
             "redir_login": "🔄 Redirecting...",
             "error_campos": "❌ Fill all fields (*)",
-            "nombre": "Name",
-            "apellido": "Surname",
+            "titulo_portal": "Technical Report Portal",
+            "cat1": "Service Data",
+            "cat2": "Equipment Details",
+            "proyecto": "Project / Location",
             "cliente": "Company",
             "email": "Email",
-            "pais": "Country",
             "tel": "Phone",
+            "ns_titulo": "S.N. (Serial Number)",
+            "desc_instruccion": "Failure description",
+            "fotos": "Attach photos/videos",
+            "btn_agregar": "Add Equipment",
+            "btn_generar": "GENERATE TICKET",
+            "btn_salir": "LOGOUT",
+            "exito": "✅ Ticket sent successfully.",
+            "nombre": "Name",
+            "apellido": "Surname",
+            "pais": "Country",
             "pass_rep": "Repeat Password",
-            "acepto": "I accept Privacy Policy",
-            "btn_volver": "BACK"
+            "btn_volver": "BACK",
+            "btn_generar": "REGISTER"
         }
     }
 
-    # Si es español o inglés, usamos el manual
     if codigo_iso in traducciones_maestras:
         return traducciones_maestras[codigo_iso]
 
-    # 2. TRADUCCIÓN GALÁCTICA
+    # Traducción automática para otros idiomas
     try:
-        # --- PARCHE DE CORRECCIÓN DE CÓDIGOS ---
-        # Algunos códigos ISO no coinciden con los de Google. Aquí los arreglamos.
-        mapa_correccion = {
-            "he": "iw",     # Hebreo
-            "zh": "zh-CN",  # Chino Simplificado
-            "jv": "jw"      # Javanés
-        }
-        
-        # Si el código está en la lista negra, lo cambiamos. Si no, usamos el original.
+        mapa_correccion = {"he": "iw", "zh": "zh-CN", "jv": "jw"}
         codigo_google = mapa_correccion.get(codigo_iso, codigo_iso)
-        # ---------------------------------------
-
+        
         base_es = traducciones_maestras["es"]
         traductor = GoogleTranslator(source='es', target=codigo_google)
         
@@ -102,9 +127,5 @@ def traducir_interfaz(codigo_iso):
             else:
                 diccionario_traducido[clave] = texto
         return diccionario_traducido
-        
-    except Exception as e:
-        # Si falla, imprimimos error en consola (no en pantalla) y devolvemos inglés
-        print(f"Error traducción: {e}")
+    except:
         return traducciones_maestras["en"]
-
