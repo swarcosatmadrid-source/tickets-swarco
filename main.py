@@ -1,13 +1,13 @@
 # ARCHIVO: main.py
-# VERSIÓN: v1.1 (Fix Doble Clic)
+# VERSIÓN: v1.2-OFFLINE (Modo Sin Base de Datos)
 # FECHA: 15-Ene-2026
-# DESCRIPCIÓN: Usa 'on_change' para cambiar el idioma instantáneamente sin lag.
+# DESCRIPCIÓN: Se han comentado las líneas de GSheets para recuperar la visualización y probar idiomas.
 
 import streamlit as st
 import pandas as pd
-from streamlit_gsheets_connection import GSheetsConnection
+# from streamlit_gsheets_connection import GSheetsConnection  <--- COMENTADO PARA QUE NO FALLE
 
-# Importamos nuestros módulos (El equipo completo)
+# Importamos nuestros módulos
 import estilos
 import usuarios
 import tickets
@@ -20,27 +20,21 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- 2. GESTIÓN DE ESTADO (MEMORIA) ---
+# --- 2. GESTIÓN DE ESTADO ---
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
 
 if 'codigo_lang' not in st.session_state:
-    st.session_state.codigo_lang = 'es' # Por defecto Español
+    st.session_state.codigo_lang = 'es' 
 
-# --- 3. CALLBACK PARA EL IDIOMA (La solución al Bug) ---
+# --- 3. CALLBACK PARA EL IDIOMA ---
 def actualizar_idioma_callback():
-    """
-    Se ejecuta INMEDIATAMENTE cuando el usuario cambia el selector.
-    Actualiza la variable de sesión antes de recargar la página.
-    """
     seleccion = st.session_state.selector_idioma_key
-    # Extraemos el código: "English (en)" -> "en"
     nuevo_codigo = seleccion.split('(')[-1].split(')')[0]
     st.session_state.codigo_lang = nuevo_codigo
 
 # --- 4. BARRA LATERAL (SIDEBAR) ---
 with st.sidebar:
-    # Definimos las opciones
     opciones_idioma = [
         "Castellano (es)", 
         "English (en)", 
@@ -52,8 +46,6 @@ with st.sidebar:
         "Chinese (zh)"
     ]
     
-    # Buscamos en qué posición está el idioma actual para que el selectbox no se resetee
-    # Si el código es 'en', buscamos cuál opción contiene '(en)'
     indice_actual = 0
     for i, op in enumerate(opciones_idioma):
         if f"({st.session_state.codigo_lang})" in op:
@@ -64,26 +56,26 @@ with st.sidebar:
         "Idioma del Portal / Portal Language",
         opciones_idioma,
         index=indice_actual,
-        key="selector_idioma_key",  # Llave única
-        on_change=actualizar_idioma_callback # <--- AQUÍ ESTÁ LA MAGIA
+        key="selector_idioma_key",
+        on_change=actualizar_idioma_callback 
     )
     
     st.markdown("---")
-    st.caption(f"Swarco Traffic Spain \nSAT Portal vTicketV0")
+    st.caption(f"Swarco Traffic Spain \nSAT Portal vTicketV0 (Offline)")
 
 # --- 5. CARGA DE TRADUCCIONES ---
-# Ahora 't' se cargará con el idioma correcto desde el primer milisegundo
 t = traducir_interfaz(st.session_state.codigo_lang)
 
-# --- 6. CONEXIÓN A GOOGLE SHEETS ---
-try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-except:
-    st.error("⚠️ Error: No se detectó la conexión a Google Sheets (.streamlit/secrets.toml)")
-    st.stop()
+# --- 6. CONEXIÓN A GOOGLE SHEETS (DESACTIVADA) ---
+# try:
+#     conn = st.connection("gsheets", type=GSheetsConnection)
+# except:
+#     st.error("⚠️ Error: No se detectó la conexión a Google Sheets")
+#     st.stop()
+conn = None # Ponemos esto para que no rompa las funciones que piden 'conn'
 
 # --- 7. NAVEGACIÓN PRINCIPAL ---
-estilos.cargar_estilos() # Cargamos CSS Naranja
+estilos.cargar_estilos() 
 
 if not st.session_state.autenticado:
     # Si quiere registrarse
@@ -95,3 +87,4 @@ if not st.session_state.autenticado:
 else:
     # Si ya entró
     tickets.interfaz_tickets(conn, t)
+
