@@ -21,7 +21,7 @@ def chequear_calidad_clave(p):
 def gestionar_acceso(conn):
     st.markdown("<h2 style='text-align: center; color: #00549F;'>🔐 Acceso Usuarios</h2>", unsafe_allow_html=True)
     with st.form("login_form"):
-        user_in = st.text_input("Usuario (ID)", placeholder="Ej: UTE_Sevilla").strip()
+        user_in = st.text_input("Usuario (ID)", placeholder="Ej: Equipo_Levante").strip()
         pass_in = st.text_input("Contraseña", type="password")
         if st.form_submit_button("INGRESAR", use_container_width=True):
             try:
@@ -36,16 +36,18 @@ def gestionar_acceso(conn):
     return False
 
 def interfaz_registro_legal(conn):
-    st.markdown("<h3 style='color: #F29400;'>📝 Registro de Nuevo Usuario o Equipo</h3>", unsafe_allow_html=True)
-    st.info("👋 **Bienvenido.** Siga los pasos a continuación para crear su cuenta de acceso al SAT de Swarco.")
+    st.markdown("<h3 style='color: #F29400;'>📝 Registro de Nuevo Usuario / Equipo</h3>", unsafe_allow_html=True)
+    
+    # --- AVISO DE VALIDACIÓN AUTOMÁTICA ---
+    st.info("💡 **Consejo:** Para validar sus datos rápidamente, pulse **Enter** o cambie de casilla después de escribir.")
 
-    # --- INICIO DEL FORMULARIO PASO A PASO ---
+    # --- INICIO DEL FORMULARIO ---
     with st.form("form_registro_v0"):
         
         # PASO 1
         st.markdown("#### **Paso 1: Identificación**")
-        st.caption("Defina cómo se identificará en el sistema (ideal para grupos de trabajo o UTEs).")
-        usuario_id = st.text_input("Nombre de Usuario / ID de Equipo *", placeholder="Ej: Equipo_Norte_01")
+        st.caption("Defina su identidad en el sistema.")
+        usuario_id = st.text_input("Nombre de Usuario / ID de Equipo *", placeholder="Ej: UTE_Madrid_Sur")
         
         c1, c2 = st.columns(2)
         with c1:
@@ -57,10 +59,8 @@ def interfaz_registro_legal(conn):
         
         st.markdown("---")
 
-        # PASO 2 (Validación dentro del form para que sea intuitivo visualmente)
+        # PASO 2
         st.markdown("#### **Paso 2: Seguridad de la Cuenta**")
-        st.caption("Cree una contraseña segura para proteger su acceso.")
-        
         col_p1, col_p2 = st.columns(2)
         with col_p1:
             pass1 = st.text_input("Defina su Clave *", type="password")
@@ -76,11 +76,9 @@ def interfaz_registro_legal(conn):
 
         # PASO 3
         st.markdown("#### **Paso 3: Verificación y Legal**")
-        st.caption("Cumplimiento del protocolo de seguridad y protección de datos.")
-        
         col_v1, col_v2 = st.columns(2)
         with col_v1:
-            telefono = st.text_input("Teléfono móvil de contacto *")
+            telefono = st.text_input("Teléfono móvil *")
         with col_v2:
             if 'n1' not in st.session_state:
                 st.session_state.n1, st.session_state.n2 = random.randint(1, 10), random.randint(1, 10)
@@ -89,10 +87,8 @@ def interfaz_registro_legal(conn):
         st.warning("🔒 Sus datos serán tratados siguiendo el reglamento RGPD.")
         acepta_rgpd = st.checkbox("Acepto los términos y condiciones de Swarco SAT *")
         
-        # BOTÓN FINAL
         btn_registrar = st.form_submit_button("FINALIZAR REGISTRO", use_container_width=True)
 
-    # Lógica de procesamiento (Fuera del form para persistencia en caso de error)
     if btn_registrar:
         if not (usuario_id and nombre and apellido and empresa and email and pass1 and telefono):
             st.error("❌ Por favor, rellene todos los campos marcados con (*).")
@@ -111,9 +107,14 @@ def interfaz_registro_legal(conn):
                 response = requests.post(URL_BRIDGE, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
                 
                 if "Éxito" in response.text:
-                    st.success("🎊 ¡USUARIO CREADO CORRECTAMENTE!")
-                    st.balloons()
+                    # MENSAJE FRIENDLY Y LIMPIEZA
+                    st.success("✨ **¡Usuario creado con éxito! Bienvenidos a Swarco Spain SAT.**")
+                    st.info("Redirigiendo automáticamente a la página de inicio de sesión...")
+                    
+                    # Esperamos un poco para que lea el mensaje
                     time.sleep(3)
+                    
+                    # Reseteamos el estado para que el formulario desaparezca
                     st.rerun()
                 else:
                     st.error(f"❌ Error en el servidor: {response.text}")
