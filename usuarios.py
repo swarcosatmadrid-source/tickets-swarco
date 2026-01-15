@@ -3,10 +3,11 @@ import pandas as pd
 import json
 import requests
 
-# URL de tu Google Apps Script (Asegúrate de que sea la versión más reciente)
+# URL de tu Google Apps Script (Verifica que sea la misma en tu Main)
 URL_BRIDGE = "https://script.google.com/macros/s/AKfycbyDpHS4nU16O7YyvABvmbFYHTLv2e2J8vrpSD-iCmamjmS4Az6p9iZNUmVEwzMVyzx9/exec"
 
 def gestionar_acceso(conn):
+    """Maneja el inicio de sesión de usuarios existentes"""
     if st.session_state.get('autenticado', False):
         return True
 
@@ -18,7 +19,10 @@ def gestionar_acceso(conn):
         
         if st.form_submit_button("ENTRAR AL SISTEMA", use_container_width=True):
             try:
+                # Leemos la pestaña 'Usuarios'
                 df = conn.read(worksheet="Usuarios", ttl=0)
+                
+                # Validación de credenciales
                 validado = df[(df['Usuario'].str.lower() == user_in) & (df['Password'].astype(str) == pass_in)]
                 
                 if not validado.empty:
@@ -28,19 +32,21 @@ def gestionar_acceso(conn):
                         'Contacto': validado.iloc[0]['Usuario'],
                         'Email': validado.iloc[0]['Email']
                     }
+                    st.success(f"✅ Bienvenido {validado.iloc[0]['Nombre']}")
                     st.rerun()
                 else:
-                    st.error("❌ Credenciales incorrectas.")
+                    st.error("❌ Credenciales incorrectas. Verifique el nombre y la clave.")
             except Exception as e:
-                st.error(f"Error de base de datos: {e}")
+                st.error(f"Error al conectar con la base de datos: {e}")
     return False
 
 def interfaz_registro_legal(conn):
+    """Registro de usuario con Nombre, Apellido, Clave Doble y RGPD"""
     st.markdown("<h3 style='color: #F29400;'>📝 Registro de Nuevo Usuario</h3>", unsafe_allow_html=True)
     
-    with st.form("form_registro_blindado"):
-        # CAPA 1: HONEYPOT (La dejamos pero sin bloquear por si el navegador auto-completa)
-        honeypot = st.text_input("Info adicional", key="hp_field", label_visibility="collapsed")
+    with st.form("form_registro_v0"):
+        # Trampa para bots (Honeypot) - La dejamos por código pero no bloqueará
+        honeypot = st.text_input("Info Adicional", key="hp_field", label_visibility="collapsed")
         
         c1, c2 = st.columns(2)
         with c1:
@@ -49,53 +55,77 @@ def interfaz_registro_legal(conn):
             empresa = st.text_input("Empresa *").strip()
         with c2:
             email = st.text_input("Email Corporativo *").strip()
-            telefono = st.text_input("Teléfono")
+            telefono = st.text_input("Teléfono de contacto")
             pregunta_seguridad = st.number_input("Seguridad: ¿Cuánto es 10 + 5?", step=1)
             
         st.markdown("---")
         col_p1, col_p2 = st.columns(2)
         with col_p1:
-            pass1 = st.text_input("Defina Clave *", type="password")
+            pass1 = st.text_input("Defina su Clave *", type="password")
         with col_p2:
-            pass2 = st.text_input("Repita Clave *", type="password")
+            pass2 = st.text_input("Repita su Clave *", type="password")
             
         st.markdown("---")
-        acepta_rgpd = st.checkbox("Acepto la Política de Protección de Datos de SWARCO SAT.")
+        # El Checkbox legal indispensable
+        acepta_rgpd = st.checkbox("He leído y acepto la Política de Protección de Datos de SWARCO SAT.")
         
+        with st.expander("Ver aviso legal completo"):
+            st.write("""
+                Los datos recogidos serán utilizados únicamente para la gestión de tickets técnicos. 
+                Usted tiene derecho al acceso y rectificación de sus datos según la normativa vigente.
+            """)
+
         btn_registrar = st.form_submit_button("CREAR MI CUENTA", use_container_width=True)
 
     if btn_registrar:
-        # Validación White Hat relajada para humanos
-        if honeypot: 
-            st.error("Error de validación (Honeypot).")
-            return
+        # 1. Verificación del Captcha Lógico
         if pregunta_seguridad != 15:
             st.error("❌ Respuesta de seguridad incorrecta.")
             return
+
+        # 2. Verificación de Campos obligatorios
         if not (nombre and apellido and empresa and email and pass1):
-            st.warning("⚠️ Rellene los campos obligatorios.")
+            st.warning("⚠️ Por favor, rellene todos los campos marcados con *.")
+        
+        # 3. Verificación de Contraseña doble
         elif pass1 != pass2:
-            st.error("❌ Las claves no coinciden.")
+            st.error("❌ Las contraseñas no coinciden.")
+            
+        # 4. Verificación de RGPD
         elif not acepta_rgpd:
-            st.error("❌ Debe aceptar los términos legales.")
+            st.error("❌ Debe aceptar los términos legales para continuar.")
+            
         else:
             try:
+                # Verificación de Duplicados en el Sheet
+                df_actual = conn.read(worksheet="Usuarios", ttl=0)
                 nombre_completo = f"{nombre} {apellido}"
-                payload = {
-                    "Accion": "Registro",
-                    "Usuario": nombre_completo,
-                    "Nombre": nombre,
-                    "Apellido": apellido,
-                    "Email": email,
-                    "Password": pass1,
-                    "Empresa": empresa,
-                    "Telefono": telefono,
-                    "RGPD": "SÍ"
-                }
-                response = requests.post(URL_BRIDGE, data=json.dumps(payload))
-                if "Éxito" in response.text:
-                    st.success("✅ ¡Registro completado! Ya puede iniciar sesión.")
+                
+                duplicado = df_actual[(df_actual['Usuario'].str.lower() == nombre_completo.lower()) & 
+                                     (df_actual['Empresa'].str.lower() == empresa.lower())]
+                
+                if not duplicado.empty:
+                    st.error(f"⚠️ El usuario '{nombre_completo}' ya está registrado en la empresa '{empresa}'.")
                 else:
-                    st.error(f"❌ Error en Google: {response.text}")
+                    # Datos para enviar al Google Apps Script
+                    payload = {
+                        "Accion": "Registro",
+                        "Usuario": nombre_completo,
+                        "Nombre": nombre,
+                        "Apellido": apellido,
+                        "Email": email,
+                        "Password": pass1,
+                        "Empresa": empresa,
+                        "Telefono": telefono,
+                        "RGPD": "SÍ"
+                    }
+                    
+                    response = requests.post(URL_BRIDGE, data=json.dumps(payload))
+                    
+                    if "Éxito" in response.text:
+                        st.success("✅ ¡Registro completado! Ya puede ir a la pestaña de Iniciar Sesión.")
+                    else:
+                        st.error(f"❌ Error en el servidor: {response.text}")
+            
             except Exception as e:
-                st.error(f"❌ Error: {e}")
+                st.error(f"❌ Error crítico: {e}")
