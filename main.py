@@ -6,7 +6,7 @@ import os
 import sys
 import requests 
 
-# 1. CONFIGURACIÓN Y RUTAS
+# 1. ARRANQUE Y OPTIMIZACIÓN DE RUTAS
 sys.path.append(os.path.dirname(__file__))
 
 from estilos import cargar_estilos
@@ -23,7 +23,7 @@ st.set_page_config(page_title="SWARCO SAT | Portal Técnico", layout="centered",
 cargar_estilos()
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Inicializar estados de la sesión para evitar pérdida de datos al recargar
+# --- SISTEMA DE PERSISTENCIA (Evita pérdida de datos) ---
 if 'ticket_exitoso' not in st.session_state:
     st.session_state.ticket_exitoso = False
 if 'ultimo_ticket' not in st.session_state:
@@ -34,68 +34,51 @@ if 'lista_equipos' not in st.session_state:
 # --- CAPA DE SEGURIDAD (Login) ---
 if gestionar_acceso(conn):
     
-    # --- PANTALLA DE ÉXITO (Se muestra tras el envío exitoso) ---
+    # --- PANTALLA DE ÉXITO (Diseño de Tarjeta) ---
     if st.session_state.ticket_exitoso:
         st.markdown(f"""
             <div style="background-color: #f0fff0; padding: 40px; border-radius: 20px; border: 2px solid #2ecc71; text-align: center; margin-top: 50px;">
                 <h1 style="color: #27ae60; font-family: sans-serif; font-weight: 800;">✅ ¡Ticket Registrado!</h1>
-                <p style="font-size: 18px; color: #333;">Su reporte técnico ha sido enviado correctamente a nuestro centro de control.</p>
+                <p style="font-size: 18px; color: #333;">Su reporte técnico ha sido enviado correctamente.</p>
                 <div style="background-color: white; padding: 25px; border-radius: 15px; margin: 30px 0; border: 1px solid #ddd; box-shadow: 0px 4px 10px rgba(0,0,0,0.05);">
-                    <p style="color: #666; margin-bottom: 5px; text-transform: uppercase; font-weight: bold; font-size: 12px;">Referencia de Seguimiento:</p>
+                    <p style="color: #666; margin-bottom: 5px; text-transform: uppercase; font-weight: bold; font-size: 12px;">Nº de Seguimiento:</p>
                     <h2 style="color: #00549F; margin: 0; font-family: monospace; font-size: 32px;">{st.session_state.ultimo_ticket}</h2>
                 </div>
-                <p style="font-size: 15px; color: #555;">Un técnico de SWARCO procesará su solicitud a la brevedad.</p>
             </div>
         """, unsafe_allow_html=True)
         
-        st.markdown("<br>", unsafe_allow_html=True)
-        col_ex1, col_ex2 = st.columns(2)
-        with col_ex1:
-            if st.button("➕ Registrar otro reporte", use_container_width=True):
+        c_ex1, c_ex2 = st.columns(2)
+        with c_ex1:
+            if st.button("➕ Crear otro reporte", use_container_width=True):
                 st.session_state.ticket_exitoso = False
                 st.session_state.lista_equipos = []
                 st.rerun()
-        with col_ex2:
-            if st.button("🚪 Cerrar Sesión", type="primary", use_container_width=True):
+        with c_ex2:
+            if st.button("🚪 Salir / Cerrar Sesión", type="primary", use_container_width=True):
                 st.session_state.autenticado = False
                 st.session_state.ticket_exitoso = False
                 st.rerun()
         st.stop()
 
-    # --- FORMULARIO DE REPORTE ---
+    # --- ENCABEZADO Y CONFIGURACIÓN ---
     d_cli = st.session_state.get('datos_cliente', {})
-    
     col_logo, col_lang = st.columns([1.5, 1])
-    with col_logo:
-        st.image("logo.png", width=250)
+    with col_logo: st.image("logo.png", width=250)
     with col_lang:
-        idioma_txt = st.selectbox("Idioma / Language", ["Castellano", "English"], index=0)
+        idioma_txt = st.selectbox("Idioma / Language", ["Castellano", "English"])
         t = traducir_interfaz(idioma_txt)
 
-    # Título Principal con Estilo Swarco
-    st.markdown(f"""
-        <div style="text-align: center; margin-top: 10px; margin-bottom: 30px;">
-            <h2 style="color: #00549F; font-family: sans-serif; margin-bottom: 0px; font-weight: 800;">SWARCO TRAFFIC SPAIN</h2>
-            <h3 style="color: #666; font-family: sans-serif; margin-top: 5px; border-bottom: 2px solid #F29400; display: inline-block; padding-bottom: 10px;">
-                {t.get('titulo_portal', 'Portal de Reporte Técnico SAT')}
-            </h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # CSS Personalizado para el Slider
+    # Estilos del Slider y Cabeceras
     st.markdown("""
         <style>
-        .stSlider > div [data-baseweb="slider"] {
-            background: linear-gradient(to right, #ADD8E6 0%, #F29400 100%) !important;
-            height: 12px !important;
-        }
+        .stSlider > div [data-baseweb="slider"] { background: linear-gradient(to right, #ADD8E6 0%, #F29400 100%) !important; height: 12px !important; }
         .stSlider > div [data-baseweb="slider"] > div:nth-child(2) { background-color: transparent !important; }
         [data-testid="stTickBarMin"], [data-testid="stTickBarMax"] { color: #00549F !important; font-weight: bold !important; }
-        .section-header { background-color: #00549F; color: white; padding: 10px; border-radius: 5px; margin-top: 20px; font-weight: bold; }
+        .section-header { background-color: #00549F; color: white; padding: 10px; border-radius: 5px; margin-top: 20px; font-weight: bold; text-transform: uppercase; }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- SECCIÓN 1: DATOS DEL CLIENTE ---
+    # --- CATEGORÍA 1: CLIENTE ---
     st.markdown(f'<div class="section-header">{t["cat1"]}</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
@@ -111,7 +94,7 @@ if gestionar_acceso(conn):
         tel_limpio = ''.join(filter(str.isdigit, tel_raw))
         tel_final = f"{prefijo}{tel_limpio}"
 
-    # --- SECCIÓN 2: DATOS DEL EQUIPO ---
+    # --- CATEGORÍA 2: EQUIPO ---
     st.markdown(f'<div class="section-header">{t["cat2"]}</div>', unsafe_allow_html=True)
     st.info(t['pegatina'])
     st.image("etiqueta.jpeg", use_container_width=True)
@@ -119,76 +102,62 @@ if gestionar_acceso(conn):
     with ce1: ns_in = st.text_input(t['ns_titulo'], key="ns_input")
     with ce2: ref_in = st.text_input("REF.", key="ref_input")
 
-    # --- SECCIÓN 3: PROBLEMA Y MULTIMEDIA ---
+    # --- CATEGORÍA 3: PROBLEMA Y FOTOS ---
     st.markdown(f'<div class="section-header">{t["cat3"]}</div>', unsafe_allow_html=True)
-    opciones_urg = [t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']]
-    urg_val = st.select_slider(t['urg_instruccion'], options=opciones_urg, value=t['u3'])
+    urg_val = st.select_slider(t['urg_instruccion'], options=[t['u1'], t['u2'], t['u3'], t['u4'], t['u5'], t['u6']], value=t['u3'])
     falla_in = st.text_area(t['desc_instruccion'], placeholder=t['desc_placeholder'], key="desc_input")
     
-    # Cargador de Archivos (Fotos/Videos)
+    # CARGADOR DE ARCHIVOS (FUNDAMENTAL)
     archivos = st.file_uploader(t['fotos'], accept_multiple_files=True, type=['png', 'jpg', 'jpeg', 'mp4'])
 
-    # --- BOTONES DE REGISTRO ---
+    # CUADRO DE INSTRUCCIONES VISUALES
+    st.markdown(f"""
+        <div style="background-color: #f0f8ff; padding: 15px; border-radius: 10px; border-left: 5px solid #00549F; margin-top: 20px;">
+            <p style="color: #00549F; font-weight: bold; margin-bottom: 5px;">💡 ¿Cómo procesar su solicitud?</p>
+            <p style="font-size: 14px; color: #333;">1. Registre equipo -> 2. Verifique tabla -> 3. Genere Ticket.</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # --- BOTONES DE ACCIÓN ---
     st.markdown("---")
     col_b1, col_b2 = st.columns(2)
     with col_b1:
         if st.button("➕ Registrar Dispositivo", use_container_width=True):
             if len(ns_in) >= 3 and len(falla_in) >= 10:
-                st.session_state.lista_equipos.append({
-                    "N.S.": str(ns_in), "REF": str(ref_in), 
-                    "Prioridad": str(urg_val), "Descripción": str(falla_in)
-                })
+                st.session_state.lista_equipos.append({"N.S.": ns_in, "REF": ref_in, "Prioridad": urg_val, "Descripción": falla_in})
                 st.rerun()
             else:
-                st.warning("⚠️ Complete los datos del equipo antes de añadirlo.")
+                st.warning("⚠️ Complete N.S. y Descripción.")
 
-    # --- TABLA DE RESUMEN Y ENVÍO FINAL ---
+    # --- RESUMEN Y ENVÍO ---
     if st.session_state.lista_equipos:
-        st.markdown("### 📋 Resumen de Equipos Reportados")
         st.table(pd.DataFrame(st.session_state.lista_equipos))
-        
         with col_b2:
             if st.button(f"🚀 {t['btn_generar']}", type="primary", use_container_width=True):
-                # Validaciones críticas de seguridad
                 if not proyecto_ub:
                     st.error("⚠️ Error: Indique la Ubicación o Proyecto.")
-                elif not tel_limpio or len(tel_limpio) < 7:
-                    st.error("⚠️ Error: Ingrese un teléfono válido.")
+                elif not tel_limpio:
+                    st.error("⚠️ Error: Ingrese un teléfono de contacto.")
                 else:
                     ticket_id = f"SAT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
                     ahora = datetime.now()
                     try:
                         res_ns = ", ".join([str(e.get('N.S.', '')) for e in st.session_state.lista_equipos])
-                        res_ref = ", ".join([str(e.get('REF', '')) for e in st.session_state.lista_equipos])
-                        
                         payload = {
-                            "Ticket_ID": str(ticket_id),
-                            "Fecha": ahora.strftime("%d/%m/%Y"),
-                            "Hora": ahora.strftime("%H:%M"),
-                            "Cliente": str(empresa),
-                            "Ubicacion": str(proyecto_ub),
-                            "NS": res_ns, "REF": res_ref,
-                            "Urgencia_Max": str(st.session_state.lista_equipos[-1].get('Prioridad', '')),
-                            "Estado": "OPEN"
+                            "Ticket_ID": ticket_id, "Fecha": ahora.strftime("%d/%m/%Y"),
+                            "Hora": ahora.strftime("%H:%M"), "Cliente": empresa,
+                            "Ubicacion": proyecto_ub, "NS": res_ns, "Estado": "OPEN"
                         }
-                        
                         resp = requests.post(URL_SCRIPT, json=payload)
-                        
-                        if "Éxito_Ticket" in resp.text:
-                            # Enviar el correo con los datos
+                        if "Éxito" in resp.text:
                             enviar_email_outlook(empresa, contacto, proyecto_ub, st.session_state.lista_equipos, email_usr, ticket_id, tel_final)
                             st.session_state.ultimo_ticket = ticket_id
                             st.session_state.ticket_exitoso = True
                             st.rerun()
-                        else:
-                            st.error(f"❌ Error en base de datos: {resp.text}")
                     except Exception as e:
-                        st.error(f"❌ Error crítico: {e}")
+                        st.error(f"❌ Error: {e}")
 
-    # --- BOTÓN SALIR ---
     st.markdown("---")
     if st.button(f"🚪 {t['btn_salir']}", use_container_width=True):
         st.session_state.autenticado = False
         st.rerun()
-
-    st.markdown("<p style='text-align:center; font-size:12px; color:#999;'>© 2026 SWARCO TRAFFIC SPAIN | The Better Way. Every Day.</p>", unsafe_allow_html=True)
