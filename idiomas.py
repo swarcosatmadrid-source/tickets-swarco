@@ -1,3 +1,8 @@
+# ARCHIVO: idiomas.py
+# VERSIÓN: v1.1-DEBUG
+# FECHA: 15-Ene-2026
+# DESCRIPCIÓN: Incluye un chivato (st.error) para mostrar en pantalla por qué falla la traducción.
+
 import streamlit as st
 from deep_translator import GoogleTranslator
 
@@ -33,7 +38,13 @@ def traducir_interfaz(codigo_iso):
             "btn_agregar": "Añadir Equipo",
             "btn_generar": "GENERAR TICKET",
             "btn_salir": "SALIR",
-            "exito": "✅ Ticket enviado correctamente."
+            "exito": "✅ Ticket enviado correctamente.",
+            # Faltantes del registro para evitar errores de llave
+            "nombre": "Nombre",
+            "apellido": "Apellido",
+            "pais": "País",
+            "pass_rep": "Repetir Contraseña",
+            "acepto": "Acepto Política de Privacidad"
         },
         "en": {
             "login_tit": "🔐 Registered User Access",
@@ -42,7 +53,22 @@ def traducir_interfaz(codigo_iso):
             "btn_entrar": "LOGIN",
             "btn_ir_registro": "Sign up here",
             "reg_tit": "📝 New User Registration",
-            # ... (Aquí va el resto de tu inglés que ya tenemos)
+            "p1_tit": "Step 1: Identification",
+            "p2_tit": "Step 2: Security",
+            "p3_tit": "Step 3: Verification",
+            "match": "✅ Passwords match",
+            "no_match": "⚠️ Passwords do not match",
+            "exito_reg": "✨ User created successfully!",
+            "redir_login": "🔄 Redirecting...",
+            "error_campos": "❌ Fill all fields (*)",
+            "nombre": "Name",
+            "apellido": "Surname",
+            "cliente": "Company",
+            "email": "Email",
+            "pais": "Country",
+            "tel": "Phone",
+            "pass_rep": "Repeat Password",
+            "acepto": "I accept Privacy Policy"
         }
     }
 
@@ -53,7 +79,7 @@ def traducir_interfaz(codigo_iso):
     # 2. TRADUCCIÓN GALÁCTICA (Cualquier idioma de la tierra)
     try:
         base_es = traducciones_maestras["es"]
-        # El traductor recibe el código ISO (eu para euskera, he para hebreo, sk para eslovaco)
+        # El traductor recibe el código ISO
         traductor = GoogleTranslator(source='es', target=codigo_iso)
         
         diccionario_traducido = {}
@@ -64,8 +90,12 @@ def traducir_interfaz(codigo_iso):
             else:
                 diccionario_traducido[clave] = texto
         return diccionario_traducido
+        
     except Exception as e:
-        # Si el mundo se acaba o no hay internet, el inglés nos salva
+        # --- MODO DEBUG: CHIVATO DE ERROR ---
+        st.error(f"⚠️ ERROR CRÍTICO DEL TRADUCTOR: {e}")
+        # ------------------------------------
+        # Si falla, devolvemos inglés por seguridad
         return traducciones_maestras["en"]
 
 
