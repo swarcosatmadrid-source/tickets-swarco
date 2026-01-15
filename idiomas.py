@@ -1,7 +1,7 @@
 # ARCHIVO: idiomas.py
-# VERSIÓN: v1.1-DEBUG
+# VERSIÓN: v1.2 (Corrección de Códigos ISO)
 # FECHA: 15-Ene-2026
-# DESCRIPCIÓN: Incluye un chivato (st.error) para mostrar en pantalla por qué falla la traducción.
+# DESCRIPCIÓN: Mapea códigos conflictivos (como he->iw) para que Google Translator no falle.
 
 import streamlit as st
 from deep_translator import GoogleTranslator
@@ -39,12 +39,13 @@ def traducir_interfaz(codigo_iso):
             "btn_generar": "GENERAR TICKET",
             "btn_salir": "SALIR",
             "exito": "✅ Ticket enviado correctamente.",
-            # Faltantes del registro para evitar errores de llave
+            # Claves extra para el registro
             "nombre": "Nombre",
             "apellido": "Apellido",
             "pais": "País",
             "pass_rep": "Repetir Contraseña",
-            "acepto": "Acepto Política de Privacidad"
+            "acepto": "Acepto Política de Privacidad",
+            "btn_volver": "VOLVER"
         },
         "en": {
             "login_tit": "🔐 Registered User Access",
@@ -68,23 +69,34 @@ def traducir_interfaz(codigo_iso):
             "pais": "Country",
             "tel": "Phone",
             "pass_rep": "Repeat Password",
-            "acepto": "I accept Privacy Policy"
+            "acepto": "I accept Privacy Policy",
+            "btn_volver": "BACK"
         }
     }
 
-    # Si es español o inglés, no gastamos internet, tiramos de lo manual
+    # Si es español o inglés, usamos el manual
     if codigo_iso in traducciones_maestras:
         return traducciones_maestras[codigo_iso]
 
-    # 2. TRADUCCIÓN GALÁCTICA (Cualquier idioma de la tierra)
+    # 2. TRADUCCIÓN GALÁCTICA
     try:
+        # --- PARCHE DE CORRECCIÓN DE CÓDIGOS ---
+        # Algunos códigos ISO no coinciden con los de Google. Aquí los arreglamos.
+        mapa_correccion = {
+            "he": "iw",     # Hebreo
+            "zh": "zh-CN",  # Chino Simplificado
+            "jv": "jw"      # Javanés
+        }
+        
+        # Si el código está en la lista negra, lo cambiamos. Si no, usamos el original.
+        codigo_google = mapa_correccion.get(codigo_iso, codigo_iso)
+        # ---------------------------------------
+
         base_es = traducciones_maestras["es"]
-        # El traductor recibe el código ISO
-        traductor = GoogleTranslator(source='es', target=codigo_iso)
+        traductor = GoogleTranslator(source='es', target=codigo_google)
         
         diccionario_traducido = {}
         for clave, texto in base_es.items():
-            # Traducimos solo si es texto largo, respetando iconos
             if isinstance(texto, str) and len(texto) > 1:
                 diccionario_traducido[clave] = traductor.translate(texto)
             else:
@@ -92,10 +104,7 @@ def traducir_interfaz(codigo_iso):
         return diccionario_traducido
         
     except Exception as e:
-        # --- MODO DEBUG: CHIVATO DE ERROR ---
-        st.error(f"⚠️ ERROR CRÍTICO DEL TRADUCTOR: {e}")
-        # ------------------------------------
-        # Si falla, devolvemos inglés por seguridad
+        # Si falla, imprimimos error en consola (no en pantalla) y devolvemos inglés
+        print(f"Error traducción: {e}")
         return traducciones_maestras["en"]
-
 
