@@ -33,13 +33,15 @@ if 'ticket_enviado' not in st.session_state:
 # Conexión a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 4. SELECTOR DE IDIOMA Y TRADUCCIONES ---
+# --- 4. SELECTOR DE IDIOMA Y TRADUCCIONES (Universal) ---
 if not st.session_state.autenticado:
     st.sidebar.markdown("### 🌐 Language / Idioma")
-    st.session_state.idioma = st.sidebar.radio(
+    # Agregamos los idiomas que quieras. Tu función ya maneja si no existen.
+    idiomas_disponibles = ["Castellano", "English", "Français", "Deutsch"]
+    st.session_state.idioma = st.sidebar.selectbox(
         "Select / Seleccione:", 
-        ["Castellano", "English"], 
-        index=0 if st.session_state.idioma == "Castellano" else 1,
+        idiomas_disponibles,
+        index=idiomas_disponibles.index(st.session_state.idioma) if st.session_state.idioma in idiomas_disponibles else 0,
         key="lang_selector"
     )
 
@@ -47,6 +49,12 @@ t = traducir_interfaz(st.session_state.idioma)
 
 # --- 5. CONTROL DE ACCESO (LOGIN / REGISTRO) ---
 if not st.session_state.autenticado:
+    
+    # LOGO CENTRADO (Usando columnas como pediste)
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        st.image("logo.png", use_container_width=True)
+
     # SI EL USUARIO PIDE REGISTRO (Pantalla secundaria)
     if st.session_state.mostrar_registro:
         usuarios.interfaz_registro_legal(conn)
@@ -56,7 +64,7 @@ if not st.session_state.autenticado:
     
     # PANTALLA DE LOGIN (Principal)
     else:
-        st.image("logo.png", width=250) # Asegúrate de tener el logo
+        st.markdown(f"<h2 style='text-align: center;'>{t.get('login_tit', 'Acceso')}</h2>", unsafe_allow_html=True)
         if usuarios.gestionar_acceso(conn):
             st.rerun()
         
@@ -81,6 +89,7 @@ if st.sidebar.button(t.get("btn_salir", "SALIR")):
 st.title(f"🎫 {t.get('titulo_portal', 'Generador de Reportes SAT')}")
 st.markdown("---")
 
+# PANTALLA DE ÉXITO POST-ENVÍO
 if st.session_state.ticket_enviado:
     st.success(t.get("exito", "✅ Ticket enviado correctamente."))
     if st.button("Crear nuevo ticket" if st.session_state.idioma == "Castellano" else "New ticket"):
@@ -126,10 +135,11 @@ if st.button(t.get("btn_agregar", "➕ Añadir Equipo")):
         })
         st.toast("Equipo añadido")
     else:
-        st.error("⚠️ Error")
+        st.error("⚠️")
 
 # TABLA Y ENVÍO
 if st.session_state.lista_equipos:
+    st.write("### Equipos en este reporte:")
     df_equipos = pd.DataFrame(st.session_state.lista_equipos)
     st.table(df_equipos)
     
@@ -137,6 +147,7 @@ if st.session_state.lista_equipos:
         if not proyecto or not telefono:
             st.error("⚠️")
         else:
-            # Lógica de envío final
+            # Lógica de envío final (aquí conectarás el correo.py luego)
             st.session_state.ticket_enviado = True
             st.rerun()
+
