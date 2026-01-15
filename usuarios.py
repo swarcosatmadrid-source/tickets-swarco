@@ -49,7 +49,8 @@ def gestionar_acceso(conn, t):
                         st.session_state.datos_cliente = {
                             'Empresa': validar.iloc[0]['Empresa'],
                             'Contacto': validar.iloc[0]['Usuario'],
-                            'Email': validar.iloc[0]['Email']
+                            'Email': validar.iloc[0]['Email'],
+                            'Telefono_Base': validar.iloc[0].get('Telefono', '') # <--- Traemos el teléfono de la DB
                         }
                         st.success("✅ Acceso concedido")
                         time.sleep(1)
