@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import correo  # <--- Importante para conectar con el mensajero
 
 def interfaz_tickets(conn, t):
     """
@@ -9,23 +10,22 @@ def interfaz_tickets(conn, t):
     # 1. Recuperamos datos del cliente logueado
     d_cli = st.session_state.get('datos_cliente', {})
     
-    # 2. Sidebar de control
+    # 2. Sidebar de control y salida
     st.sidebar.image("logo.png", width=150)
-    st.sidebar.markdown(f"### 👤 {d_cli.get('Contacto', 'Usuario')}")
-    st.sidebar.info(f"🏢 {d_cli.get('Empresa', 'Swarco Partner')}")
+    st.sidebar.success(f"👤 {d_cli.get('Contacto', 'User')}")
     
     if st.sidebar.button(t.get('btn_salir', 'SALIR'), use_container_width=True):
         st.session_state.autenticado = False
-        st.session_state.lista_equipos = [] # Limpiamos al salir
+        st.session_state.lista_equipos = [] # Limpiamos memoria
         st.rerun()
 
-    # 3. Título y Estado del Ticket
-    st.title(f"🎫 {t.get('titulo_portal', 'Portal de Reportes')}")
+    st.title(f"🎫 {t.get('titulo_portal', 'Portal SAT')}")
 
-    # Pantalla de éxito tras enviar
+    # --- PANTALLA DE ÉXITO ---
     if st.session_state.get('ticket_enviado', False):
+        st.balloons() # Un toque de celebración
         st.success(t.get("exito", "✅ Ticket enviado correctamente."))
-        if st.button("Crear otro reporte"):
+        if st.button("Crear un nuevo reporte"):
             st.session_state.ticket_enviado = False
             st.session_state.lista_equipos = []
             st.rerun()
@@ -33,16 +33,15 @@ def interfaz_tickets(conn, t):
 
     # --- FORMULARIO DE REPORTE ---
 
-    # SECCIÓN A: Datos del lugar (Expander para ahorrar espacio)
+    # SECCIÓN A: Datos del lugar
     with st.expander(f"📍 {t.get('cat1', 'Datos del Servicio')}", expanded=True):
-        c1, c2 = st.columns(2)
-        with c1:
-            # Estos vienen de la base de datos, no se tocan
+        col1, col2 = st.columns(2)
+        with col1:
             st.text_input(t.get("cliente", "Empresa"), value=d_cli.get('Empresa'), disabled=True)
-            proyecto = st.text_input(t.get("proyecto", "Ubicación/Proyecto") + " *")
-        with c2:
+            proyecto = st.text_input(t.get("proyecto", "Ubicación") + " *")
+        with col2:
             st.text_input(t.get("email", "Email"), value=d_cli.get('Email'), disabled=True)
-            telefono = st.text_input(t.get("tel", "Teléfono de contacto") + " *")
+            telefono = st.text_input(t.get("tel", "Teléfono") + " *")
 
     # SECCIÓN B: Añadir Equipos
     st.subheader(f"🛠️ {t.get('cat2', 'Detalle de Equipos')}")
@@ -50,46 +49,53 @@ def interfaz_tickets(conn, t):
     with st.container(border=True):
         ce1, ce2 = st.columns([3, 2])
         with ce1:
-            ns_equipo = st.text_input(t.get("ns_titulo", "N.S. (Número de Serie)") + " *")
+            ns_equipo = st.text_input(t.get("ns_titulo", "N.S.") + " *")
         with ce2:
-            referencia = st.text_input("Referencia / Modelo")
+            referencia = st.text_input("Referencia / Ref")
 
-        falla_desc = st.text_area(t.get("desc_instruccion", "Descripción de la avería") + " *")
-        
-        # ADN: Manejo de fotos (guardamos nombres de archivos por ahora)
-        archivos = st.file_uploader(t.get("fotos", "Adjuntar evidencias"), accept_multiple_files=True)
+        falla_desc = st.text_area(t.get("desc_instruccion", "Fallo") + " *")
+        archivos = st.file_uploader(t.get("fotos", "Fotos"), accept_multiple_files=True)
 
-        if st.button(t.get("btn_agregar", "➕ Añadir Equipo a la lista"), use_container_width=True):
+        if st.button(t.get("btn_agregar", "Añadir Equipo"), use_container_width=True):
             if ns_equipo and falla_desc:
-                # Inicializamos la lista en la sesión si no existe
                 if 'lista_equipos' not in st.session_state:
                     st.session_state.lista_equipos = []
                 
-                # Guardamos el equipo en el ADN de la sesión
                 st.session_state.lista_equipos.append({
                     "N.S.": ns_equipo,
                     "Referencia": referencia,
                     "Avería": falla_desc,
                     "Fotos": len(archivos) if archivos else 0
                 })
-                st.toast(f"Equipo {ns_equipo} añadido")
+                st.toast(f"Equipo {ns_equipo} OK")
             else:
-                st.error("⚠️ El N.S. y la descripción son obligatorios.")
+                st.error("⚠️ Falta N.S. o Descripción")
 
-    # SECCIÓN C: Resumen y Envío
+    # SECCIÓN C: Resumen y Envío Final por Correo
     if st.session_state.get('lista_equipos'):
         st.markdown("---")
-        st.write(f"### 📋 {t.get('resumen', 'Equipos para reportar')}")
+        st.write(f"### 📋 {t.get('resumen', 'Resumen del Reporte')}")
         
-        # Mostramos la tabla machete
         df_resumen = pd.DataFrame(st.session_state.lista_equipos)
-        st.dataframe(df_resumen, use_container_width=True)
+        st.table(df_resumen)
 
-        if st.button(t.get("btn_generar", "🚀 ENVIAR REPORTE FINAL"), type="primary", use_container_width=True):
+        # EL BOTÓN DE ENVÍO FINAL
+        if st.button(t.get("btn_generar", "🚀 ENVIAR TICKET"), type="primary", use_container_width=True):
             if not proyecto or not telefono:
-                st.warning("⚠️ Completa la ubicación y el teléfono antes de enviar.")
+                st.warning("⚠️ Rellene ubicación y teléfono.")
             else:
-                # Aquí es donde el ADN de 'correo.py' entrará en juego
-                # Por ahora, simulamos el éxito
-                st.session_state.ticket_enviado = True
-                st.rerun()
+                # 📧 LLAMADA AL MÓDULO DE CORREO
+                with st.spinner('Enviando reporte a Swarco...'):
+                    exito_mail = correo.enviar_ticket_soporte(
+                        datos_cliente=d_cli,
+                        proyecto=proyecto,
+                        telefono=telefono,
+                        lista_equipos=st.session_state.lista_equipos,
+                        idioma_t=t
+                    )
+                
+                if exito_mail:
+                    st.session_state.ticket_enviado = True
+                    st.rerun()
+                else:
+                    st.error("❌ Error al enviar el email. Revise la configuración SMTP en Secrets.")
