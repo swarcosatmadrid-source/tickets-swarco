@@ -36,56 +36,65 @@ def gestionar_acceso(conn):
     return False
 
 def interfaz_registro_legal(conn):
-    # Control de estado para borrar el formulario tras el éxito
-    if 'registro_exitoso' not in st.session_state:
-        st.session_state.registro_exitoso = False
-
-    if st.session_state.registro_exitoso:
+    # 1. CONTROL DE BORRADO: Si tuvo éxito, no dibujamos nada más que el mensaje friendly
+    if st.session_state.get('registro_exitoso', False):
         st.success("✨ **¡Usuario creado con éxito! Bienvenidos a Swarco Spain SAT.**")
-        st.info("🔄 Redirigiendo a la pantalla de inicio de sesión...")
+        st.info("🔄 Redirigiendo automáticamente a la página de inicio de sesión...")
         time.sleep(3)
-        st.session_state.registro_exitoso = False # Reset para la próxima
+        st.session_state.registro_exitoso = False
         st.rerun()
         return
 
     st.markdown("<h3 style='color: #F29400;'>📝 Registro de Nuevo Usuario / Equipo</h3>", unsafe_allow_html=True)
     
-    # --- PASO 2: SEGURIDAD (FUERA DEL FORM PARA VALIDACIÓN INSTANTÁNEA) ---
-    st.markdown("#### **Paso 1: Seguridad de la Cuenta**")
-    st.caption("La validación de sus claves es automática al cambiar de campo.")
+    # --- EL CONSEJO QUE TE GUSTABA ---
+    st.info("💡 **Consejo:** Los campos se validan automáticamente al cambiar de casilla o pulsar Enter.")
+
+    # --- PASO 1 Y 2 FUERA DEL FORM PARA VALIDACIÓN EN TIEMPO REAL ---
+    st.markdown("#### **Paso 1: Identificación**")
+    st.caption("Defina su identidad en el sistema (Ideal para equipos o UTEs).")
+    usuario_id = st.text_input("Nombre de Usuario / ID de Equipo *", placeholder="Ej: UTE_Madrid_Sur")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        nombre = st.text_input("Nombre Responsable *")
+        apellido = st.text_input("Apellidos *")
+    with c2:
+        empresa = st.text_input("Empresa / UTE *")
+        email = st.text_input("Email Corporativo *")
+
+    st.markdown("---")
+    st.markdown("#### **Paso 2: Seguridad de la Cuenta**")
+    st.caption("La validación de claves es instantánea.")
+    
     col_p1, col_p2 = st.columns(2)
     with col_p1:
-        pass1 = st.text_input("Defina su Clave *", type="password", key="reg_pass1")
+        pass1 = st.text_input("Defina su Clave *", type="password")
         calidad, _ = chequear_calidad_clave(pass1)
         if pass1: st.write(f"Calidad: **{calidad}**")
     with col_p2:
-        pass2 = st.text_input("Confirme su Clave *", type="password", key="reg_pass2")
+        pass2 = st.text_input("Confirme su Clave *", type="password")
         if pass1 and pass2:
             if pass1 == pass2: st.success("✅ Las claves coinciden")
             else: st.error("⚠️ Las claves NO coinciden")
 
-    # --- RESTO DEL REGISTRO EN FORMULARIO PARA ENVÍO ---
-    with st.form("form_registro_v0"):
-        st.markdown("#### **Paso 2: Identificación y Contacto**")
-        usuario_id = st.text_input("Nombre de Usuario / ID de Equipo *", placeholder="Ej: UTE_Madrid_Sur")
-        
-        c1, c2 = st.columns(2)
-        with c1:
-            nombre = st.text_input("Nombre Responsable *")
-            apellido = st.text_input("Apellidos *")
-            empresa = st.text_input("Empresa / UTE *")
-        with c2:
-            email = st.text_input("Email Corporativo *")
-            telefono = st.text_input("Teléfono móvil *")
+    st.markdown("---")
+
+    # --- PASO 3 DENTRO DEL FORM PARA EL ENVÍO FINAL ---
+    with st.form("form_registro_final"):
+        st.markdown("#### **Paso 3: Verificación y Legal**")
+        col_v1, col_v2 = st.columns(2)
+        with col_v1:
+            telefono = st.text_input("Teléfono móvil de contacto *")
+        with col_v2:
             if 'n1' not in st.session_state:
                 st.session_state.n1, st.session_state.n2 = random.randint(1, 10), random.randint(1, 10)
-            captcha_user = st.number_input(f"Seguridad: {st.session_state.n1} + {st.session_state.n2}?", step=1)
+            captcha_user = st.number_input(f"Seguridad: ¿Cuánto es {st.session_state.n1} + {st.session_state.n2}? *", step=1)
 
-        st.markdown("---")
         st.warning("🔒 Sus datos serán tratados siguiendo el reglamento RGPD.")
         acepta_rgpd = st.checkbox("Acepto los términos y condiciones de Swarco SAT *")
         
-        btn_registrar = st.form_submit_button("FINALIZAR REGISTRO Y ACTIVAR CUENTA", use_container_width=True)
+        btn_registrar = st.form_submit_button("FINALIZAR REGISTRO", use_container_width=True)
 
     if btn_registrar:
         if not (usuario_id and nombre and apellido and empresa and email and pass1 and telefono):
@@ -105,7 +114,6 @@ def interfaz_registro_legal(conn):
                 response = requests.post(URL_BRIDGE, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
                 
                 if "Éxito" in response.text:
-                    # Marcamos éxito para que en el siguiente render se borre todo
                     st.session_state.registro_exitoso = True
                     st.rerun()
                 else:
