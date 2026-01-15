@@ -17,7 +17,7 @@ def chequear_calidad_clave(p):
 def gestionar_acceso(conn):
     t = traducir_interfaz(st.session_state.idioma)
     with st.form("login_form"):
-        user_in = st.text_input(t.get('user_id', 'ID'), placeholder="Ej: UTE_Sur").strip()
+        user_in = st.text_input(t.get('user_id', 'ID'), placeholder="Ej: Equipo_Levante").strip()
         pass_in = st.text_input(t.get('pass', 'Clave'), type="password")
         if st.form_submit_button(t.get('btn_entrar', 'INGRESAR'), use_container_width=True):
             try:
@@ -28,7 +28,7 @@ def gestionar_acceso(conn):
                     st.session_state.datos_cliente = {'Empresa': v.iloc[0]['Empresa'], 'Contacto': v.iloc[0]['Usuario'], 'Email': v.iloc[0]['Email']}
                     return True
                 else: st.error(t.get('error_cred', "❌ Error"))
-            except Exception as e: st.error(f"Error: {e}")
+            except: st.error("Error DB")
     return False
 
 def interfaz_registro_legal(conn):
@@ -43,37 +43,31 @@ def interfaz_registro_legal(conn):
         return
 
     st.markdown(f"### {t.get('reg_tit', 'Registro')}")
-    st.info(f"💡 {t.get('consejo', 'Validación automática al cambiar de casilla.')}")
+    st.info(f"💡 {t.get('consejo', 'Validación automática al cambiar de campo.')}")
 
-    # PASO 1: ID (Fuera del form para validación al instante)
+    # Paso 1
     with st.container(border=True):
-        st.markdown(f"#### {t.get('p1_tit', 'Paso 1')}")
+        st.markdown(f"#### {t.get('p1_tit', 'Identificación')}")
         usuario_id = st.text_input(t.get('user_id', 'ID') + " *")
-        c1, c2 = st.columns(2)
-        with c1:
-            nombre = st.text_input("Nombre / Name *")
-            empresa = st.text_input(t.get('cliente', 'Empresa') + " *")
-        with c2:
-            apellido = st.text_input("Apellidos / Last Name *")
-            email = st.text_input(t.get('email', 'Email') + " *")
+        nombre = st.text_input("Nombre / Name *")
+        empresa = st.text_input(t.get('cliente', 'Empresa') + " *")
+        email = st.text_input(t.get('email', 'Email') + " *")
 
-    # PASO 2: CLAVES (Validación instantánea)
+    # Paso 2: Validación automática (On-Change)
     with st.container(border=True):
-        st.markdown(f"#### {t.get('p2_tit', 'Paso 2')}")
-        cp1, cp2 = st.columns(2)
-        with cp1:
-            pass1 = st.text_input(t.get('pass', 'Clave') + " *", type="password")
-            calidad, _ = chequear_calidad_clave(pass1)
-            if pass1: st.write(f"Calidad: {calidad}")
-        with cp2:
-            pass2 = st.text_input(t.get('pass', 'Clave') + " (Confirm) *", type="password")
-            if pass1 and pass2:
-                if pass1 == pass2: st.success(t.get('match', "✅ OK"))
-                else: st.error(t.get('no_match', "⚠️ No coinciden"))
+        st.markdown(f"#### {t.get('p2_tit', 'Seguridad')}")
+        pass1 = st.text_input(t.get('pass', 'Clave') + " *", type="password")
+        if pass1: 
+            cal, _ = chequear_calidad_clave(pass1)
+            st.write(f"Calidad: {cal}")
+        pass2 = st.text_input(t.get('pass', 'Clave') + " (Confirm) *", type="password")
+        if pass1 and pass2:
+            if pass1 == pass2: st.success(t.get('match', "✅ OK"))
+            else: st.error(t.get('no_match', "⚠️ No coinciden"))
 
-    # PASO 3: FORMULARIO FINAL
+    # Paso 3: Formulario
     with st.form("form_final"):
-        st.markdown(f"#### {t.get('p3_tit', 'Paso 3')}")
+        st.markdown(f"#### {t.get('p3_tit', 'Legal')}")
         tel = st.text_input(t.get('tel', 'Teléfono') + " *")
         if 'n1' not in st.session_state:
             st.session_state.n1, st.session_state.n2 = random.randint(1,10), random.randint(1,10)
@@ -86,7 +80,7 @@ def interfaz_registro_legal(conn):
                 st.error(t.get('error_campos', "❌ Revisar campos"))
             else:
                 try:
-                    payload = {"Accion": "Registro", "Usuario": usuario_id, "Nombre": nombre, "Apellido": apellido, "Email": email, "Password": pass1, "Empresa": empresa, "Telefono": tel, "RGPD": "SÍ"}
+                    payload = {"Accion": "Registro", "Usuario": usuario_id, "Nombre": nombre, "Email": email, "Password": pass1, "Empresa": empresa, "Telefono": tel, "RGPD": "SÍ"}
                     requests.post(URL_BRIDGE, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
                     st.session_state.registro_exitoso = True
                     st.rerun()
