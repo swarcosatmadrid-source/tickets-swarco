@@ -16,11 +16,10 @@ def chequear_fuerza_clave(p):
 
 @st.cache_data
 def obtener_paises_mundo(lang_code):
-    """Maneja la lista de países y traduce 'Spain' manualmente"""
     paises_dict = {}
     trads_paises = {
-        "es": {"Spain": "España", "France": "Francia", "Germany": "Alemania", "Slovakia": "Eslovaquia", "Italy": "Italia"},
-        "en": {"Spain": "Spain", "France": "France", "Germany": "Germany", "Slovakia": "Slovakia", "Italy": "Italy"}
+        "es": {"Spain": "España", "France": "Francia", "Germany": "Alemania", "Slovakia": "Eslovaquia"},
+        "en": {"Spain": "Spain", "France": "France", "Germany": "Germany", "Slovakia": "Slovakia"}
     }
     trads = trads_paises.get(lang_code, trads_paises["en"])
     for country in pycountry.countries:
@@ -30,118 +29,88 @@ def obtener_paises_mundo(lang_code):
             paises_dict[nombre_f] = f"+{prefijo}"
     return dict(sorted(paises_dict.items()))
 
-# --- 2. INTERFAZ DE LOGIN (ACCESO) ---
+# --- 2. INTERFAZ DE LOGIN ---
 def gestionar_acceso(conn, t):
-    # Centrar logo
     c1, c2, c3 = st.columns([1, 2, 1])
-    with c2: 
-        st.image("logo.png", use_container_width=True)
-    
+    with c2: st.image("logo.png", use_container_width=True)
     st.markdown("<h3 style='text-align: center;'>Swarco Traffic Spain</h3>", unsafe_allow_html=True)
-    st.markdown(f"<h5 style='text-align: center; color: gray;'>{t.get('login_tit', 'Acceso')}</h5>", unsafe_allow_html=True)
     
     with st.container(border=True):
-        # Cada widget tiene su propia 'key' para evitar el error de Duplicado
-        user_in = st.text_input(t.get('user_id', 'Usuario'), key="login_u").strip()
-        pass_in = st.text_input(t.get('pass', 'Contraseña'), type="password", key="login_p")
+        u_in = st.text_input(t.get('user_id', 'Usuario'), key="login_u").strip()
+        p_in = st.text_input(t.get('pass', 'Contraseña'), type="password", key="login_p")
         
+        # EL SEGURO: t.get(llave, defecto) evita que label sea None
         if st.button(t.get('btn_entrar', 'INGRESAR'), use_container_width=True, key="btn_l_submit"):
             try:
                 df = conn.read(worksheet="Usuarios", ttl=0)
-                validar = df[(df['Usuario'].astype(str) == user_in) & (df['Password'].astype(str) == pass_in)]
+                validar = df[(df['Usuario'].astype(str) == u_in) & (df['Password'].astype(str) == p_in)]
                 if not validar.empty:
                     st.session_state.autenticado = True
-                    st.session_state.datos_cliente = {
-                        'Empresa': validar.iloc[0]['Empresa'],
-                        'Contacto': validar.iloc[0]['Usuario'],
-                        'Email': validar.iloc[0]['Email'],
-                        'Telefono': validar.iloc[0].get('Telefono', '')
-                    }
+                    st.session_state.datos_cliente = {'Empresa': validar.iloc[0]['Empresa'], 'Contacto': validar.iloc[0]['Usuario'], 'Email': validar.iloc[0]['Email'], 'Telefono': validar.iloc[0].get('Telefono', '')}
                     st.rerun()
-                else:
-                    st.error(t.get('error_login', '❌'))
-            except:
-                st.error("Error connecting to Database")
+                else: st.error("❌ Login Error")
+            except: st.error("DB Error")
     
-    st.write("")
     if st.button(t.get('btn_ir_registro', 'Registrarse'), use_container_width=True, key="btn_to_reg"):
         st.session_state.mostrar_registro = True
         st.rerun()
 
-# --- 3. INTERFAZ DE REGISTRO (CON KEYS ÚNICAS) ---
+# --- 3. INTERFAZ DE REGISTRO BLINDADA ---
 def interfaz_registro_legal(conn, t):
     c1, c2, c3 = st.columns([1.5, 1, 1.5])
-    with c2: 
-        st.image("logo.png", use_container_width=True)
+    with c2: st.image("logo.png", use_container_width=True)
     
     st.markdown("<h3 style='text-align: center;'>Swarco Traffic Spain</h3>", unsafe_allow_html=True)
-    st.markdown(f"<h4 style='text-align: center;'>{t.get('reg_tit')}</h4>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='text-align: center;'>{t.get('reg_tit', 'Registro')}</h4>", unsafe_allow_html=True)
 
     with st.container(border=True):
-        # PASO 1: Identificación
-        st.markdown(f"##### {t.get('p1_tit', '1')}")
+        st.markdown(f"##### {t.get('p1_tit', '1. Datos')}")
         col_n, col_a = st.columns(2)
-        with col_n: 
-            nombre = st.text_input(f"{t.get('nombre')} *", key="r_nom")
-        with col_a: 
-            apellido = st.text_input(f"{t.get('apellido')} *", key="r_ape")
-        
-        empresa = st.text_input(f"{t.get('cliente')} *", key="r_emp")
-        email_new = st.text_input(f"{t.get('email')} *", key="r_mail")
+        with col_n: nombre = st.text_input(f"{t.get('nombre', 'Nombre')} *", key="r_nom")
+        with col_a: apellido = st.text_input(f"{t.get('apellido', 'Apellido')} *", key="r_ape")
+        empresa = st.text_input(f"{t.get('cliente', 'Empresa')} *", key="r_emp")
+        email_new = st.text_input(f"{t.get('email', 'Email')} *", key="r_mail")
 
         st.markdown("---")
-        
-        # PASO 2: País y Teléfono
-        st.markdown(f"##### {t.get('p2_tit', '2')}")
+        st.markdown(f"##### {t.get('p2_tit', '2. Contacto')}")
         idioma = st.session_state.get('codigo_lang', 'es')
         paises_data = obtener_paises_mundo(idioma)
         nombres_p = list(paises_data.keys())
-        
         busqueda = "España" if idioma == "es" else "Spain"
         idx_def = nombres_p.index(busqueda) if busqueda in nombres_p else 0
         
         c_p, c_t = st.columns([1, 2])
         with c_p:
-            pais_sel = st.selectbox(f"{t.get('pais')}", nombres_p, index=idx_def, key="r_pais")
+            pais_sel = st.selectbox(f"{t.get('pais', 'País')}", nombres_p, index=idx_def, key="r_pais")
             prefijo = paises_data[pais_sel]
         with c_t:
-            tel_local = st.text_input(f"{t.get('tel')} ({prefijo}) *", key="r_tel")
+            tel_local = st.text_input(f"{t.get('tel', 'Teléfono')} ({prefijo}) *", key="r_tel")
 
         st.markdown("---")
-        
-        # PASO 3: Seguridad
-        st.markdown(f"##### {t.get('p3_tit', '3')}")
-        u_id = st.text_input(f"{t.get('user_id')} *", key="r_uid")
+        st.markdown(f"##### {t.get('p3_tit', '3. Seguridad')}")
+        u_id = st.text_input(f"{t.get('user_id', 'Usuario')} *", key="r_uid")
         c_p1, c_p2 = st.columns(2)
-        with c_p1:
-            p1 = st.text_input(f"{t.get('pass')} *", type="password", key="r_p1")
-        with c_p2:
-            p2 = st.text_input(f"{t.get('pass_rep')} *", type="password", key="r_p2")
-        
-        if p1 and p2:
-            if p1 == p2: st.success(t.get('match', '✅'))
-            else: st.error(t.get('no_match', '❌'))
+        with c_p1: p1 = st.text_input(f"{t.get('pass', 'Clave')} *", type="password", key="r_p1")
+        with c_p2: p2 = st.text_input(f"{t.get('pass_rep', 'Repetir')} *", type="password", key="r_p2")
 
         st.markdown("---")
-        
-        # PASO 4: Legal
-        acepta = st.checkbox(t.get('acepto', 'GDPR'), key="r_gdpr")
+        acepta = st.checkbox(t.get('acepto', 'Acepto GDPR'), key="r_gdpr")
         captcha = st.number_input("10 + 5 =", min_value=0, key="r_cap")
 
-    # Botones corporativos
     st.markdown("<style>div.stButton > button:first-child {background-color: #003366; color: white;}</style>", unsafe_allow_html=True)
     c_env, c_vol = st.columns(2)
     with c_env:
-        if st.button(t.get('btn_generar'), use_container_width=True, key="r_btn_submit"):
+        # AQUÍ ESTABA EL ERROR: t.get('btn_generar') devolvía None. Ahora tiene un respaldo 'REGISTRAR'
+        if st.button(t.get('btn_generar', 'REGISTRAR'), use_container_width=True, key="r_btn_submit"):
             if not (nombre and apellido and empresa and email_new and tel_local and p1==p2 and acepta and captcha==15):
-                st.error(t.get('error_campos'))
+                st.error(t.get('error_campos', 'Faltan datos'))
             else:
-                st.success(t.get('exito_reg'))
+                st.success("✅ Success")
                 time.sleep(2)
                 st.session_state.mostrar_registro = False
                 st.rerun()
 
     with col_vol:
-        if st.button(t.get('btn_volver'), use_container_width=True, key="r_btn_back"):
+        if st.button(t.get('btn_volver', 'VOLVER'), use_container_width=True, key="r_btn_back"):
             st.session_state.mostrar_registro = False
             st.rerun()
