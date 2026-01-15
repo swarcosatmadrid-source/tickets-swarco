@@ -18,22 +18,27 @@ if 'ticket_enviado' not in st.session_state: st.session_state.ticket_enviado = F
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 2. SELECTOR DE IDIOMA SEGURO ---
+# --- 2. SELECTOR DE IDIOMA UNIVERSAL ---
 if not st.session_state.autenticado:
     st.sidebar.markdown("### 🌐 Language / Idioma")
-    idiomas_soporte = ["Castellano", "English", "Français", "Deutsch"]
     
-    # Si el idioma actual no está en la lista, forzamos Castellano
-    idx_sel = idiomas_soporte.index(st.session_state.idioma) if st.session_state.idioma in idiomas_soporte else 0
+    # Esta es la lista que me pediste meter:
+    idiomas_del_mundo = ["Castellano", "English", "Chino", "Français", "Deutsch", "Ruso", "Árabe", "Japonés"]
     
+    # Calculamos el índice para que no se resetee al refrescar
+    if st.session_state.idioma in idiomas_del_mundo:
+        idx_actual = idiomas_del_mundo.index(st.session_state.idioma)
+    else:
+        idx_actual = 0
+
     st.session_state.idioma = st.sidebar.selectbox(
-        "Select Language:", 
-        idiomas_soporte,
-        index=idx_sel
+        "🌏 Seleccione su idioma:", 
+        idiomas_del_mundo, 
+        index=idx_actual
     )
 
 # --- 3. TRADUCCIÓN ROBUSTA ---
-# Si tu función traducir_interfaz no tiene el idioma, ella devolverá English por defecto
+# t ahora contiene el diccionario traducido (ya sea a mano o por Google Translate)
 t = traducir_interfaz(st.session_state.idioma)
 
 # --- 4. PÁGINA DE ACCESO ---
@@ -45,7 +50,9 @@ if not st.session_state.autenticado:
 
     if st.session_state.mostrar_registro:
         usuarios.interfaz_registro_legal(conn)
-        if st.button("⬅️ " + ("Volver" if st.session_state.idioma == "Castellano" else "Back")):
+        # Botón dinámico según idioma
+        txt_volver = "Volver" if st.session_state.idioma == "Castellano" else t.get('back', 'Back')
+        if st.button(f"⬅️ {txt_volver}"):
             st.session_state.mostrar_registro = False
             st.rerun()
     else:
@@ -72,13 +79,14 @@ st.title(f"🎫 {t.get('titulo_portal', 'Portal SAT')}")
 
 if st.session_state.ticket_enviado:
     st.success(t.get("exito", "✅ OK"))
-    if st.button("Nuevo ticket"):
+    txt_nuevo = "Nuevo ticket" if st.session_state.idioma == "Castellano" else t.get('new_ticket', 'New Ticket')
+    if st.button(txt_nuevo):
         st.session_state.ticket_enviado = False
         st.session_state.lista_equipos = []
         st.rerun()
     st.stop()
 
-# Formulario simplificado para probar
+# Formulario (ya usa las llaves de traducción t.get)
 with st.expander(t.get("cat1", "Datos"), expanded=True):
     proyecto = st.text_input(t.get("proyecto", "Ubicación") + " *")
     telefono = st.text_input(t.get("tel", "Teléfono") + " *")
@@ -96,6 +104,7 @@ if st.button(t.get("btn_agregar", "Añadir")):
 if st.session_state.lista_equipos:
     st.table(pd.DataFrame(st.session_state.lista_equipos))
     if st.button(t.get("btn_generar", "ENVIAR"), type="primary", use_container_width=True):
+        # Aquí es donde el ticket se marca como enviado
         st.session_state.ticket_enviado = True
         st.rerun()
 
