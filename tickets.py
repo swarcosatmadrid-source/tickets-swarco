@@ -3,6 +3,7 @@ import pandas as pd
 import correo 
 import pycountry
 import phonenumbers
+import re
 
 # --- 1. FUNCIÓN DE ADN: OBTENER PAÍSES Y PREFIJOS ---
 @st.cache_data
@@ -33,10 +34,10 @@ def interfaz_tickets(conn, t):
         st.session_state.lista_equipos = []
         st.rerun()
 
-    # Pantalla de éxito (confirmación de envío)
+    # Pantalla de éxito
     if st.session_state.get('ticket_enviado', False):
         st.markdown(f"### ✔️ {t.get('exito', 'Reporte Enviado con Éxito')}")
-        st.info("La confirmación ha sido enviada a su correo electrónico y al departamento de soporte técnico.")
+        st.info("La confirmación ha sido enviada a su correo electrónico.")
         if st.button("Crear nuevo reporte técnico"):
             st.session_state.ticket_enviado = False
             st.session_state.lista_equipos = []
@@ -54,25 +55,32 @@ def interfaz_tickets(conn, t):
             proyecto = st.text_input(t.get("proyecto", "Ubicación / Proyecto") + " *")
         
         with col2:
-            # Lógica inteligente de teléfono: aparece el del registro pero es editable
+            # Lógica de teléfono persistente
             telf_registrado = str(d_cli.get('Telefono', ''))
             
             c_pre, c_num = st.columns([1.2, 2])
             with c_pre:
                 nombres_paises = list(PAISES_DATA.keys())
-                # Intentamos pre-seleccionar España por defecto o el país del técnico
-                try:
-                    idx_def = nombres_paises.index("Spain")
-                except:
-                    idx_def = 0
+                try: idx_def = nombres_paises.index("Spain")
+                except: idx_def = 0
                 
                 pais_sel = st.selectbox("País", nombres_paises, index=idx_def)
                 prefijo = PAISES_DATA[pais_sel]
             
             with c_num:
-                # Quitamos el prefijo del número guardado para mostrar solo el local
                 numero_limpio = telf_registrado.replace(prefijo, "").strip()
+                # Quitamos cualquier cosa que no sea número del valor inicial por si acaso
+                numero_limpio = "".join(filter(str.isdigit, numero_limpio))
+                
                 numero_local = st.text_input(t.get("tel", "Teléfono") + " *", value=numero_limpio)
+                
+                # --- VALIDACIÓN NUMÉRICA ---
+                es_valido_tel = True
+                if numero_local:
+                    # Si el usuario escribe algo que no sea dígito
+                    if not numero_local.isdigit():
+                        st.error("⚠️ Solo números")
+                        es_valido_tel = False
             
             telefono_completo = f"{prefijo} {numero_local}"
 
@@ -81,14 +89,14 @@ def interfaz_tickets(conn, t):
     with st.container(border=True):
         ce1, ce2 = st.columns([3, 2])
         with ce1:
-            ns_equipo = st.text_input(t.get("ns_titulo", "N.S. (Número de Serie)") + " *")
+            ns_equipo = st.text_input(t.get("ns_titulo", "N.S.") + " *")
         with ce2:
             referencia = st.text_input("Referencia / Modelo")
         
-        falla_desc = st.text_area(t.get("desc_instruccion", "Descripción de la avería") + " *")
-        archivos = st.file_uploader(t.get("fotos", "Adjuntar evidencias (Fotos/Videos)"), accept_multiple_files=True)
+        falla_desc = st.text_area(t.get("desc_instruccion", "Descripción") + " *")
+        archivos = st.file_uploader(t.get("fotos", "Adjuntar evidencias"), accept_multiple_files=True)
 
-        if st.button(t.get("btn_agregar", "➕ Añadir Equipo a la lista"), use_container_width=True):
+        if st.button(t.get("btn_agregar", "➕ Añadir Equipo"), use_container_width=True):
             if ns_equipo and falla_desc:
                 if 'lista_equipos' not in st.session_state:
                     st.session_state.lista_equipos = []
@@ -99,25 +107,27 @@ def interfaz_tickets(conn, t):
                     "Avería": falla_desc,
                     "Evidencias": len(archivos) if archivos else 0
                 })
-                st.toast(f"Equipo {ns_equipo} añadido correctamente")
+                st.toast(f"Equipo {ns_equipo} añadido")
                 st.rerun()
             else:
-                st.error("⚠️ El N.S. y la descripción son campos obligatorios.")
+                st.error("⚠️ Complete los campos obligatorios del equipo.")
 
     # --- SECCIÓN 3: RESUMEN Y ENVÍO ---
     if st.session_state.get('lista_equipos'):
         st.markdown("---")
-        st.write(f"### 📋 {t.get('resumen', 'Equipos en este reporte')}")
+        st.write(f"### 📋 {t.get('resumen', 'Resumen del Reporte')}")
         
         df_resumen = pd.DataFrame(st.session_state.lista_equipos)
         st.table(df_resumen)
         
+        # Botón final con triple validación
         if st.button(t.get("btn_generar", "🚀 ENVIAR REPORTE FINAL"), type="primary", use_container_width=True):
             if not proyecto or not numero_local:
-                st.error("⚠️ Por favor, rellene la ubicación y el teléfono de contacto.")
+                st.error("⚠️ La ubicación y el teléfono son obligatorios.")
+            elif not es_valido_tel:
+                st.error("⚠️ El formato del teléfono es incorrecto. Use solo números.")
             else:
-                with st.spinner('Enviando reporte oficial...'):
-                    # Llamada al mensajero
+                with st.spinner('Enviando reporte...'):
                     exito = correo.enviar_ticket_soporte(
                         datos_cliente=d_cli,
                         proyecto=proyecto,
@@ -130,4 +140,4 @@ def interfaz_tickets(conn, t):
                     st.session_state.ticket_enviado = True
                     st.rerun()
                 else:
-                    st.error("❌ Error al enviar el correo. Contacte con administración.")
+                    st.error("❌ Error de red. Intente de nuevo.")
