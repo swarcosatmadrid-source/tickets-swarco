@@ -18,8 +18,8 @@ def chequear_fuerza_clave(p):
 def obtener_paises_mundo(lang_code):
     paises_dict = {}
     trads_paises = {
-        "es": {"Spain": "España", "France": "Francia", "Germany": "Alemania", "Slovakia": "Eslovaquia"},
-        "en": {"Spain": "Spain", "France": "France", "Germany": "Germany", "Slovakia": "Slovakia"}
+        "es": {"Spain": "España", "France": "Francia", "Germany": "Alemania", "Slovakia": "Eslovaquia", "Italy": "Italia"},
+        "en": {"Spain": "Spain", "France": "France", "Germany": "Germany", "Slovakia": "Slovakia", "Italy": "Italy"}
     }
     trads = trads_paises.get(lang_code, trads_paises["en"])
     for country in pycountry.countries:
@@ -39,23 +39,28 @@ def gestionar_acceso(conn, t):
         u_in = st.text_input(t.get('user_id', 'Usuario'), key="login_u").strip()
         p_in = st.text_input(t.get('pass', 'Contraseña'), type="password", key="login_p")
         
-        # EL SEGURO: t.get(llave, defecto) evita que label sea None
+        # Respaldo de texto para evitar errores de traducción vacía
         if st.button(t.get('btn_entrar', 'INGRESAR'), use_container_width=True, key="btn_l_submit"):
             try:
                 df = conn.read(worksheet="Usuarios", ttl=0)
                 validar = df[(df['Usuario'].astype(str) == u_in) & (df['Password'].astype(str) == p_in)]
                 if not validar.empty:
                     st.session_state.autenticado = True
-                    st.session_state.datos_cliente = {'Empresa': validar.iloc[0]['Empresa'], 'Contacto': validar.iloc[0]['Usuario'], 'Email': validar.iloc[0]['Email'], 'Telefono': validar.iloc[0].get('Telefono', '')}
+                    st.session_state.datos_cliente = {
+                        'Empresa': validar.iloc[0]['Empresa'],
+                        'Contacto': validar.iloc[0]['Usuario'],
+                        'Email': validar.iloc[0]['Email'],
+                        'Telefono': validar.iloc[0].get('Telefono', '')
+                    }
                     st.rerun()
                 else: st.error("❌ Login Error")
-            except: st.error("DB Error")
+            except: st.error("Database Connection Error")
     
     if st.button(t.get('btn_ir_registro', 'Registrarse'), use_container_width=True, key="btn_to_reg"):
         st.session_state.mostrar_registro = True
         st.rerun()
 
-# --- 3. INTERFAZ DE REGISTRO BLINDADA ---
+# --- 3. INTERFAZ DE REGISTRO (CORREGIDO EL ERROR NameError) ---
 def interfaz_registro_legal(conn, t):
     c1, c2, c3 = st.columns([1.5, 1, 1.5])
     with c2: st.image("logo.png", use_container_width=True)
@@ -98,9 +103,11 @@ def interfaz_registro_legal(conn, t):
         captcha = st.number_input("10 + 5 =", min_value=0, key="r_cap")
 
     st.markdown("<style>div.stButton > button:first-child {background-color: #003366; color: white;}</style>", unsafe_allow_html=True)
-    c_env, c_vol = st.columns(2)
-    with c_env:
-        # AQUÍ ESTABA EL ERROR: t.get('btn_generar') devolvía None. Ahora tiene un respaldo 'REGISTRAR'
+    
+    # --- AQUÍ ESTABA EL ERROR DE NOMBRE DE VARIABLES ---
+    c_env, c_vol = st.columns(2) # Definimos c_env y c_vol
+    
+    with c_env: # Usamos c_env
         if st.button(t.get('btn_generar', 'REGISTRAR'), use_container_width=True, key="r_btn_submit"):
             if not (nombre and apellido and empresa and email_new and tel_local and p1==p2 and acepta and captcha==15):
                 st.error(t.get('error_campos', 'Faltan datos'))
@@ -110,7 +117,7 @@ def interfaz_registro_legal(conn, t):
                 st.session_state.mostrar_registro = False
                 st.rerun()
 
-    with col_vol:
+    with c_vol: # Usamos c_vol (Antes decía col_vol y eso daba error)
         if st.button(t.get('btn_volver', 'VOLVER'), use_container_width=True, key="r_btn_back"):
             st.session_state.mostrar_registro = False
             st.rerun()
