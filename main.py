@@ -1,35 +1,41 @@
 # ARCHIVO: main.py
-# VERSIÓN: v1.2-OFFLINE (Modo Sin Base de Datos)
+# PROYECTO: TicketV0
+# VERSIÓN: v1.3-ONLINE (Producción)
 # FECHA: 15-Ene-2026
-# DESCRIPCIÓN: Se han comentado las líneas de GSheets para recuperar la visualización y probar idiomas.
+# DESCRIPCIÓN: Archivo principal. Gestiona la navegación, el idioma y la conexión a BD.
 
 import streamlit as st
 import pandas as pd
-# from streamlit_gsheets_connection import GSheetsConnection  <--- COMENTADO PARA QUE NO FALLE
+from streamlit_gsheets_connection import GSheetsConnection
 
-# Importamos nuestros módulos
+# --- IMPORTACIÓN DE MÓDULOS DEL SISTEMA ---
 import estilos
 import usuarios
 import tickets
 from idiomas import traducir_interfaz
 
-# --- 1. CONFIGURACIÓN INICIAL ---
+# --- 1. CONFIGURACIÓN INICIAL DE LA PÁGINA ---
 st.set_page_config(
     page_title="Swarco Spain SAT",
     page_icon="🚦",
     layout="centered"
 )
 
-# --- 2. GESTIÓN DE ESTADO ---
+# --- 2. GESTIÓN DE ESTADO (MEMORIA DE SESIÓN) ---
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
 
 if 'codigo_lang' not in st.session_state:
-    st.session_state.codigo_lang = 'es' 
+    st.session_state.codigo_lang = 'es' # Por defecto Español
 
-# --- 3. CALLBACK PARA EL IDIOMA ---
+# --- 3. CALLBACK PARA CAMBIO DE IDIOMA INSTANTÁNEO ---
 def actualizar_idioma_callback():
+    """
+    Se ejecuta inmediatamente al cambiar el selector, actualizando
+    la variable de estado antes de recargar la página.
+    """
     seleccion = st.session_state.selector_idioma_key
+    # Extraemos el código: "English (en)" -> "en"
     nuevo_codigo = seleccion.split('(')[-1].split(')')[0]
     st.session_state.codigo_lang = nuevo_codigo
 
@@ -42,10 +48,11 @@ with st.sidebar:
         "Français (fr)", 
         "Italiano (it)", 
         "Português (pt)",
-        "Hebrew (he)",
+        "Hebrew (he)", 
         "Chinese (zh)"
     ]
     
+    # Sincronizamos el selector con el estado actual
     indice_actual = 0
     for i, op in enumerate(opciones_idioma):
         if f"({st.session_state.codigo_lang})" in op:
@@ -57,34 +64,38 @@ with st.sidebar:
         opciones_idioma,
         index=indice_actual,
         key="selector_idioma_key",
-        on_change=actualizar_idioma_callback 
+        on_change=actualizar_idioma_callback # <--- ESTO EVITA EL DOBLE CLIC
     )
     
     st.markdown("---")
-    st.caption(f"Swarco Traffic Spain \nSAT Portal vTicketV0 (Offline)")
+    st.caption(f"Swarco Traffic Spain \nSAT Portal TicketV0")
 
 # --- 5. CARGA DE TRADUCCIONES ---
+# Cargamos el diccionario 't' según el idioma seleccionado
 t = traducir_interfaz(st.session_state.codigo_lang)
 
-# --- 6. CONEXIÓN A GOOGLE SHEETS (DESACTIVADA) ---
-# try:
-#     conn = st.connection("gsheets", type=GSheetsConnection)
-# except:
-#     st.error("⚠️ Error: No se detectó la conexión a Google Sheets")
-#     st.stop()
-conn = None # Ponemos esto para que no rompa las funciones que piden 'conn'
+# --- 6. CONEXIÓN A GOOGLE SHEETS (ACTIVADA) ---
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+except Exception as e:
+    # Si falla la conexión (ej: faltan Secrets), mostramos error y paramos
+    st.error(f"⚠️ Error Crítico de Conexión: {e}")
+    st.info("Por favor, verifique el archivo .streamlit/secrets.toml en la configuración de la App.")
+    st.stop()
 
-# --- 7. NAVEGACIÓN PRINCIPAL ---
-estilos.cargar_estilos() 
+# --- 7. NAVEGACIÓN Y LÓGICA PRINCIPAL ---
+estilos.cargar_estilos() # Cargamos el tema Naranja Swarco
 
 if not st.session_state.autenticado:
-    # Si quiere registrarse
+    # MODO: NO LOGUEADO
     if st.session_state.get('mostrar_registro', False):
+        # Pantalla de Registro (Ahora con Manualito y Pasos Ordenados)
         usuarios.interfaz_registro_legal(conn, t)
     else:
-        # Si va a hacer login
+        # Pantalla de Login
         usuarios.gestionar_acceso(conn, t)
 else:
-    # Si ya entró
+    # MODO: LOGUEADO
+    # Pantalla Principal de Tickets
     tickets.interfaz_tickets(conn, t)
 
