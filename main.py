@@ -1,7 +1,6 @@
 # ==========================================
-# ARCHIVO: main.py
-# PROYECTO: TicketV0
-# VERSIÓN: v1.5 (LOOK RECUPERADO DE FOTO)
+# ARCHIVO: main.py | PROYECTO: TicketV1
+# DESCRIPCIÓN: Punto de entrada principal.
 # ==========================================
 import streamlit as st
 import gspread
@@ -35,12 +34,11 @@ def actualizar_idioma_callback():
     st.session_state.codigo_lang = seleccion.split('(')[-1].split(')')[0]
 
 with st.sidebar:
-    st.markdown("### Idioma")
+    st.markdown("### Idioma / Language")
     opciones = ["Castellano (es)", "English (en)", "Deutsch (de)", "Français (fr)"]
     st.selectbox("Seleccione", opciones, key="selector_idioma_key", on_change=actualizar_idioma_callback)
     st.markdown("---")
-    st.caption("Swarco Traffic Spain \nSAT Portal TicketV0")
-    # PACTO: ELIMINADO TODO RASTRO DE BOTÓN DE CONEXIÓN
+    st.caption("Swarco Traffic Spain \nSAT Portal TicketV1")
 
 t = traducir_interfaz(st.session_state.codigo_lang)
 estilos.cargar_estilos() 
@@ -52,3 +50,4 @@ if not st.session_state.autenticado:
         usuarios.gestionar_acceso(conn, t)
 else:
     tickets.interfaz_tickets(conn, t)
+
