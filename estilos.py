@@ -1,8 +1,12 @@
+# ==========================================
 # ARCHIVO: estilos.py
+# PROYECTO: TicketV1
 # VERSIÓN: v1.3 (Compatibilidad 2026)
 # FECHA: 16-Ene-2026
-# DESCRIPCIÓN: Se eliminó 'use_container_width' en el logo porque causaba
-#              error fatal en versiones de Streamlit posteriores a 2025.
+# DESCRIPCIÓN: Se elimina el parámetro 'use_container_width' en la función
+#              mostrar_logo() porque genera conflicto en versiones recientes
+#              de Streamlit. Se reemplaza por un 'width' fijo de 200px.
+# ==========================================
 
 import streamlit as st
 
@@ -10,6 +14,8 @@ def cargar_estilos():
     st.markdown("""
         <style>
         /* --- 1. ATAQUE DIRECTO A TODOS LOS BOTONES --- */
+        
+        /* Selector General para botones normales */
         div.stButton > button {
             background-color: #F29400 !important; /* Naranja Swarco */
             color: white !important;
@@ -33,7 +39,7 @@ def cargar_estilos():
 
         /* --- 2. HOVER (Efecto al pasar el mouse) --- */
         div.stButton > button:hover, button[kind="secondary"]:hover, button[kind="primary"]:hover {
-            background-color: #d68300 !important; 
+            background-color: #d68300 !important; /* Naranja más oscuro */
             color: white !important;
             border: none !important;
             transform: scale(1.02);
@@ -49,7 +55,7 @@ def cargar_estilos():
         /* --- 4. TÍTULOS Y CABECERAS --- */
         .section-header {
             border-bottom: 3px solid #F29400;
-            color: #00549F; 
+            color: #00549F; /* Azul Swarco */
             font-weight: 700;
             font-size: 1.1rem;
             margin-top: 1.5rem;
@@ -70,13 +76,14 @@ def cargar_estilos():
         </style>
     """, unsafe_allow_html=True)
 
-# --- FUNCIÓN DE LOGO CENTRADO (CORREGIDA PARA 2026) ---
+# --- FUNCIÓN DE LOGO CENTRADO ---
 def mostrar_logo():
     c1, c2, c3 = st.columns([1, 1.5, 1])
     with c2:
         try:
-            # CAMBIO AQUÍ: Quitamos use_container_width=True y ponemos width fijo
+            # CAMBIO v1.3: width=200 en lugar de use_container_width=True
             st.image("logo.png", width=200)
         except:
             # Si no hay imagen, no rompe la app
             pass
+
