@@ -1,25 +1,25 @@
 # ARCHIVO: usuarios.py
-# VERSIÓN: v1.3 (Diseño Corregido y Manualito)
-# FECHA: 15-Ene-2026
+# PROYECTO: TicketV0
+# VERSIÓN: v1.3 (Diseño Final)
+# FECHA: 16-Ene-2026
+# DESCRIPCIÓN: Gestiona el Login y el Registro con 4 pasos (Datos, Ubicación, Seguridad, Legal) y Manualito.
 
 import streamlit as st
 import pandas as pd
 import time
 import re
 from deep_translator import GoogleTranslator
-
-# --- IMPORTACIONES ---
 import estilos
 from paises import PAISES_DATA
 import correo
 
-# --- FUNCIONES DE AYUDA ---
+# --- AYUDAS ---
 def chequear_fuerza_clave(p):
     if len(p) < 8: return "🔴 Débil/Weak", False
     if not re.search(r"[A-Z]", p) or not re.search(r"[0-9]", p): return "🟠 Media/Medium", False
     return "🟢 Fuerte/Strong", True
 
-# --- CACHÉ DE TRADUCCIÓN DE PAÍSES ---
+# --- CACHÉ PAÍSES ---
 @st.cache_data(show_spinner=False)
 def obtener_paises_traducidos(diccionario_original, codigo_idioma):
     if codigo_idioma == 'en': return diccionario_original
@@ -36,9 +36,7 @@ def obtener_paises_traducidos(diccionario_original, codigo_idioma):
     except:
         return diccionario_original
 
-# ==========================================
-# A. PANTALLA DE LOGIN (Sin Cambios)
-# ==========================================
+# --- LOGIN ---
 def gestionar_acceso(conn, t):
     estilos.cargar_estilos()
     estilos.mostrar_logo()
@@ -55,7 +53,6 @@ def gestionar_acceso(conn, t):
                 if not df.empty:
                     df['Usuario'] = df['Usuario'].astype(str)
                     df['Password'] = df['Password'].astype(str)
-                    
                     validar = df[(df['Usuario'] == user_in) & (df['Password'] == pass_in)]
                     if not validar.empty:
                         st.session_state.autenticado = True
@@ -69,45 +66,37 @@ def gestionar_acceso(conn, t):
                     else:
                         st.error("❌ Credenciales incorrectas")
                 else:
-                    st.error("⚠️ Base de datos vacía")
+                    st.error("⚠️ BD Vacía")
             except Exception as e:
-                st.error(f"⚠️ Error de conexión: {e}")
+                st.error(f"⚠️ Error Conexión: {e}")
 
     st.markdown("---")
     if st.button(t.get('btn_ir_registro', 'Crear Cuenta Nueva'), key="goto_reg", use_container_width=True):
         st.session_state.mostrar_registro = True
         st.rerun()
 
-# ==========================================
-# B. PANTALLA DE REGISTRO (MAQUETA NUEVA)
-# ==========================================
+# --- REGISTRO ---
 def interfaz_registro_legal(conn, t):
     estilos.cargar_estilos()
     estilos.mostrar_logo()
-    
     st.markdown("<h3>Swarco Traffic Spain</h3>", unsafe_allow_html=True)
-    st.markdown(f"<h4>{t.get('reg_tit', 'Registro de Nuevo Usuario')}</h4>", unsafe_allow_html=True)
+    st.markdown(f"<h4>{t.get('reg_tit', 'Registro')}</h4>", unsafe_allow_html=True)
 
-    # --- 0. MANUALITO (AYUDA) ---
-    with st.expander(t.get('guia_titulo', '📘 Guía de Ayuda')):
+    # 0. Manualito
+    with st.expander(t.get('guia_titulo', '📘 Guía')):
         st.info(t.get('guia_desc', 'Instrucciones...'))
 
     with st.container(border=True):
-        
-        # --- PASO 1: IDENTIFICACIÓN ---
+        # 1. Datos
         st.markdown(f"<div class='section-header'>{t.get('p1_tit', '1. Identificación')}</div>", unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1: nombre = st.text_input(f"{t.get('nombre', 'Nombre')} *", key="r_nom")
         with c2: apellido = st.text_input(f"{t.get('apellido', 'Apellido')} *", key="r_ape")
-        
-        # Con tooltips (help)
         empresa = st.text_input(f"{t.get('cliente', 'Empresa')} *", key="r_emp", help=t.get('help_empresa', ''))
         email = st.text_input(f"{t.get('email', 'Email')} *", key="r_mail")
 
-        # --- PASO 2: UBICACIÓN Y CONTACTO ---
+        # 2. Ubicación
         st.markdown(f"<div class='section-header'>{t.get('p2_tit', '2. Ubicación')}</div>", unsafe_allow_html=True)
-        
-        # Lógica de países
         codigo_actual = st.session_state.get('codigo_lang', 'es')
         with st.spinner("🌍 ..."):
             paises_localizados = obtener_paises_traducidos(PAISES_DATA, codigo_actual)
@@ -125,77 +114,60 @@ def interfaz_registro_legal(conn, t):
         with col_t:
             tel = st.text_input(f"{t.get('tel', 'Teléfono')} ({prefijo}) *", key="r_tel")
 
-        # --- PASO 3: SEGURIDAD ---
+        # 3. Seguridad
         st.markdown(f"<div class='section-header'>{t.get('p3_tit', '3. Seguridad')}</div>", unsafe_allow_html=True)
-        
         uid = st.text_input(f"{t.get('user_id', 'Usuario')} *", key="r_uid", help=t.get('help_user', ''))
-        
         cp1, cp2 = st.columns(2)
-        with cp1: 
-            p1 = st.text_input(f"{t.get('pass', 'Contraseña')} *", type="password", key="r_p1", help=t.get('help_pass', ''))
-        with cp2: 
-            p2 = st.text_input(f"{t.get('pass_rep', 'Repetir')} *", type="password", key="r_p2")
-        
+        with cp1: p1 = st.text_input(f"{t.get('pass', 'Contraseña')} *", type="password", key="r_p1", help=t.get('help_pass', ''))
+        with cp2: p2 = st.text_input(f"{t.get('pass_rep', 'Repetir')} *", type="password", key="r_p2")
         if p1:
             msg, fuerte = chequear_fuerza_clave(p1)
             st.caption(f"Nivel: {msg}")
 
-        # --- PASO 4: LEGAL (NUEVO) ---
+        # 4. Legal
         st.markdown(f"<div class='section-header'>{t.get('p4_tit', '4. Legal')}</div>", unsafe_allow_html=True)
-        
-        # Link clicable usando Markdown
-        link_url = "https://www.swarco.com/privacy-policy" # Pon aquí tu link real al PDF
+        link_url = "https://www.swarco.com/privacy-policy"
         texto_link = t.get('link_texto', 'Política de Privacidad')
-        acepto_txt = t.get('acepto', 'Acepto la ')
-        
         st.markdown(f"📄 [{texto_link}]({link_url})")
-        st.caption(t.get('msg_legal', 'Lea el documento antes de aceptar.'))
-        
-        acepta = st.checkbox(f"{acepto_txt} {texto_link}", key="r_ok")
+        acepta = st.checkbox(f"{t.get('acepto', 'Acepto')} {texto_link}", key="r_ok")
 
-        # --- BOTONES ---
+        # Botones
         st.markdown("---")
         c_reg, c_vol = st.columns(2)
         with c_reg:
             if st.button(t.get('btn_generar', 'REGISTRAR'), use_container_width=True, key="btn_save_reg"):
                 errores = []
-                if not (nombre and apellido and empresa and email and tel and uid): errores.append("Faltan campos obligatorios")
-                if p1 != p2: errores.append("Contraseñas no coinciden")
-                if not acepta: errores.append("Debe aceptar la Política de Privacidad")
+                if not (nombre and apellido and empresa and email and tel and uid): errores.append("Faltan campos")
+                if p1 != p2: errores.append("Claves no coinciden")
+                if not acepta: errores.append("Aceptar política")
                 
                 if errores:
                     st.error(f"⚠️ {errores}")
                 else:
                     try:
                         nuevo_usuario = pd.DataFrame([{
-                            "Usuario": uid,
-                            "Password": p1,
-                            "Empresa": empresa,
-                            "Email": email,
-                            "Telefono": f"{prefijo} {tel}",
-                            "Pais": pais_sel,
-                            "Fecha": time.strftime("%Y-%m-%d")
+                            "Usuario": uid, "Password": p1, "Empresa": empresa,
+                            "Email": email, "Telefono": f"{prefijo} {tel}",
+                            "Pais": pais_sel, "Fecha": time.strftime("%Y-%m-%d")
                         }])
-                        
                         conn.create(worksheet="Usuarios", data=nuevo_usuario)
-
-                        with st.spinner("📧 Enviando credenciales..."):
+                        
+                        with st.spinner("📧 ..."):
                             exito_mail = correo.enviar_correo_bienvenida(email, nombre, uid, p1)
 
                         if exito_mail:
-                            st.success(t.get('exito_reg', '¡Cuenta creada!'))
+                            st.success(t.get('exito_reg', 'Cuenta creada'))
                             st.balloons()
                             time.sleep(3)
                             st.session_state.mostrar_registro = False
                             st.rerun()
                         else:
-                            st.warning("Usuario creado, pero no se envió correo (Revise Secrets).")
+                            st.warning("Guardado, pero falló correo.")
                             time.sleep(4)
                             st.session_state.mostrar_registro = False
                             st.rerun()
-
                     except Exception as e:
-                        st.error(f"Error técnico: {e}")
+                        st.error(f"Error: {e}")
         
         with c_vol:
             if st.button(t.get('btn_volver', 'VOLVER'), use_container_width=True, key="btn_back_reg"):
