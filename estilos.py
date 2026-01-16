@@ -1,52 +1,37 @@
 # =============================================================================
 # ARCHIVO: estilos.py
 # PROYECTO: Sistema de Gestión SAT - SWARCO Traffic Spain
-# VERSIÓN: 1.0.4 (Lectura Directa de Directorio)
+# VERSIÓN: 1.1.0 (Color #FF5D00 | Ruta logo/logo.png)
 # FECHA ÚLTIMA MODIF: 16-Ene-2026
-# DESCRIPCIÓN: Carga de logo basada en la estructura real de carpetas de GitHub.
+# DESCRIPCIÓN: Identidad visual corporativa.
 # =============================================================================
 
 import streamlit as st
-import os
 
 def cargar_estilos():
-    """Carga el CSS base de Swarco."""
+    """Configura el CSS con el naranja oficial de Swarco."""
     st.markdown("""
         <style>
         .swarco-title {
-            color: #FF5D00;
-            font-size: 30px;
+            color: #FF5D00 !important;
+            font-size: 28px;
             font-weight: bold;
             text-align: center;
-            margin-top: -10px;
             margin-bottom: 25px;
         }
         .stButton>button {
-            background-color: #FF5D00;
-            color: white;
+            background-color: #FF5D00 !important;
+            color: white !important;
             font-weight: bold;
             border-radius: 8px;
             height: 3em;
+            border: none;
         }
         </style>
     """, unsafe_allow_html=True)
 
 def mostrar_logo():
-    """Detecta el archivo dentro de la carpeta logo/ y lo muestra."""
-    ruta_carpeta = "logo"
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        try:
-            # Listamos archivos en la carpeta que me indicaste
-            if os.path.exists(ruta_carpeta):
-                archivos = [f for f in os.listdir(ruta_carpeta) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-                if archivos:
-                    # Usamos el primer archivo de imagen que aparezca en tu carpeta
-                    st.image(f"{ruta_carpeta}/{archivos[0]}", use_container_width=True)
-                else:
-                    st.warning("Carpeta 'logo' vacía.")
-            else:
-                st.error(f"No encuentro la carpeta: {ruta_carpeta}")
-        except Exception as e:
-            st.markdown("<h1 style='text-align: center; color: #FF5D00;'>SWARCO</h1>", unsafe_allow_html=True)
+    """Muestra el logo centrado desde la carpeta de GitHub."""
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        st.image("logo/logo.png", use_container_width=True)
