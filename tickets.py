@@ -1,143 +1,69 @@
+# ==========================================
+# ARCHIVO: usuarios.py
+# PROYECTO: TicketV0
+# VERSIÓN: v1.0 (ORIGINAL DE HOY)
+# FECHA: 16-Ene-2026
+# ==========================================
 import streamlit as st
 import pandas as pd
-import correo 
-import pycountry
-import phonenumbers
-import re
+import hashlib
+from datetime import datetime
+import estilos
 
-# --- 1. FUNCIÓN DE ADN: OBTENER PAÍSES Y PREFIJOS ---
-@st.cache_data
-def obtener_paises_mundo():
-    paises_dict = {}
-    for country in pycountry.countries:
-        nombre = country.name
-        codigo_iso = country.alpha_2
-        prefijo = phonenumbers.country_code_for_region(codigo_iso)
-        if prefijo != 0:
-            paises_dict[nombre] = f"+{prefijo}"
-    return dict(sorted(paises_dict.items()))
+def encriptar_password(password):
+    return hashlib.sha256(str.encode(password)).hexdigest()
 
-PAISES_DATA = obtener_paises_mundo()
-
-# --- 2. INTERFAZ PRINCIPAL ---
-def interfaz_tickets(conn, t):
-    # Recuperamos datos del técnico logueado
-    d_cli = st.session_state.get('datos_cliente', {})
+def gestionar_acceso(conn, t):
+    estilos.mostrar_logo()
+    st.subheader(t.get('login_title', 'Acceso SAT'))
     
-    # Sidebar Corporativa
-    st.sidebar.image("logo.png", width=150)
-    st.sidebar.markdown(f"**{t.get('cliente', 'Empresa')}:**\n{d_cli.get('Empresa', 'N/A')}")
-    st.sidebar.markdown(f"**{t.get('user_id', 'Usuario')}:**\n{d_cli.get('Contacto', 'N/A')}")
-    
-    if st.sidebar.button(t.get('btn_salir', 'SALIR'), use_container_width=True):
-        st.session_state.autenticado = False
-        st.session_state.lista_equipos = []
+    with st.form("login_form"):
+        email = st.text_input(t.get('email_label', 'Correo')).lower().strip()
+        password = st.text_input(t.get('pass_label', 'Contraseña'), type='password')
+        submit = st.form_submit_button(t.get('btn_login', 'Entrar'))
+
+        if submit:
+            try:
+                ws = conn.worksheet("Usuarios")
+                df = pd.DataFrame(ws.get_all_records())
+                if not df.empty and email in df['email'].values:
+                    stored_pass = df.loc[df['email'] == email, 'password'].values[0]
+                    if encriptar_password(password) == stored_pass:
+                        st.session_state.autenticado = True
+                        st.session_state.user_email = email
+                        st.rerun()
+                    else: st.error(t.get('err_invalid_pass', 'Contraseña incorrecta'))
+                else: st.error(t.get('err_user_not_found', 'Usuario no registrado'))
+            except Exception as e:
+                st.error(f"Error de conexión: {e}")
+
+    if st.button(t.get('btn_go_register', 'Registrarse')):
+        st.session_state.mostrar_registro = True
         st.rerun()
 
-    # Pantalla de éxito
-    if st.session_state.get('ticket_enviado', False):
-        st.markdown(f"### ✔️ {t.get('exito', 'Reporte Enviado con Éxito')}")
-        st.info("La confirmación ha sido enviada a su correo electrónico.")
-        if st.button("Crear nuevo reporte técnico"):
-            st.session_state.ticket_enviado = False
-            st.session_state.lista_equipos = []
-            st.rerun()
-        return
+def interfaz_registro_legal(conn, t):
+    st.subheader(t.get('reg_title', 'Registro'))
+    with st.form("reg_form"):
+        nombre = st.text_input(t.get('name_label', 'Nombre'))
+        email = st.text_input(t.get('email_label', 'Email')).lower().strip()
+        telefono = st.text_input(t.get('phone_label', 'Teléfono'))
+        pass1 = st.text_input(t.get('pass_label', 'Contraseña'), type='password')
+        pass2 = st.text_input(t.get('confirm_pass', 'Repetir Contraseña'), type='password')
+        submit = st.form_submit_button(t.get('btn_register', 'Registrar'))
 
-    st.title(f"🎫 {t.get('titulo_portal', 'Portal de Reportes')}")
-
-    # --- SECCIÓN 1: DATOS DE LOCALIZACIÓN ---
-    with st.container(border=True):
-        st.markdown(f"#### 📍 {t.get('cat1', 'Datos del Servicio')}")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            proyecto = st.text_input(t.get("proyecto", "Ubicación / Proyecto") + " *")
-        
-        with col2:
-            # Lógica de teléfono persistente
-            telf_registrado = str(d_cli.get('Telefono', ''))
-            
-            c_pre, c_num = st.columns([1.2, 2])
-            with c_pre:
-                nombres_paises = list(PAISES_DATA.keys())
-                try: idx_def = nombres_paises.index("Spain")
-                except: idx_def = 0
-                
-                pais_sel = st.selectbox("País", nombres_paises, index=idx_def)
-                prefijo = PAISES_DATA[pais_sel]
-            
-            with c_num:
-                numero_limpio = telf_registrado.replace(prefijo, "").strip()
-                # Quitamos cualquier cosa que no sea número del valor inicial por si acaso
-                numero_limpio = "".join(filter(str.isdigit, numero_limpio))
-                
-                numero_local = st.text_input(t.get("tel", "Teléfono") + " *", value=numero_limpio)
-                
-                # --- VALIDACIÓN NUMÉRICA ---
-                es_valido_tel = True
-                if numero_local:
-                    # Si el usuario escribe algo que no sea dígito
-                    if not numero_local.isdigit():
-                        st.error("⚠️ Solo números")
-                        es_valido_tel = False
-            
-            telefono_completo = f"{prefijo} {numero_local}"
-
-    # --- SECCIÓN 2: CARGA DE EQUIPOS ---
-    st.markdown(f"#### 🛠️ {t.get('cat2', 'Detalle de Equipos')}")
-    with st.container(border=True):
-        ce1, ce2 = st.columns([3, 2])
-        with ce1:
-            ns_equipo = st.text_input(t.get("ns_titulo", "N.S.") + " *")
-        with ce2:
-            referencia = st.text_input("Referencia / Modelo")
-        
-        falla_desc = st.text_area(t.get("desc_instruccion", "Descripción") + " *")
-        archivos = st.file_uploader(t.get("fotos", "Adjuntar evidencias"), accept_multiple_files=True)
-
-        if st.button(t.get("btn_agregar", "➕ Añadir Equipo"), use_container_width=True):
-            if ns_equipo and falla_desc:
-                if 'lista_equipos' not in st.session_state:
-                    st.session_state.lista_equipos = []
-                
-                st.session_state.lista_equipos.append({
-                    "N.S.": ns_equipo,
-                    "Referencia": referencia,
-                    "Avería": falla_desc,
-                    "Evidencias": len(archivos) if archivos else 0
-                })
-                st.toast(f"Equipo {ns_equipo} añadido")
-                st.rerun()
-            else:
-                st.error("⚠️ Complete los campos obligatorios del equipo.")
-
-    # --- SECCIÓN 3: RESUMEN Y ENVÍO ---
-    if st.session_state.get('lista_equipos'):
-        st.markdown("---")
-        st.write(f"### 📋 {t.get('resumen', 'Resumen del Reporte')}")
-        
-        df_resumen = pd.DataFrame(st.session_state.lista_equipos)
-        st.table(df_resumen)
-        
-        # Botón final con triple validación
-        if st.button(t.get("btn_generar", "🚀 ENVIAR REPORTE FINAL"), type="primary", use_container_width=True):
-            if not proyecto or not numero_local:
-                st.error("⚠️ La ubicación y el teléfono son obligatorios.")
-            elif not es_valido_tel:
-                st.error("⚠️ El formato del teléfono es incorrecto. Use solo números.")
-            else:
-                with st.spinner('Enviando reporte...'):
-                    exito = correo.enviar_ticket_soporte(
-                        datos_cliente=d_cli,
-                        proyecto=proyecto,
-                        telefono=telefono_completo,
-                        lista_equipos=st.session_state.lista_equipos,
-                        idioma_t=t
-                    )
-                
-                if exito:
-                    st.session_state.ticket_enviado = True
+        if submit:
+            if pass1 == pass2:
+                try:
+                    ws = conn.worksheet("Usuarios")
+                    ws.append_row([nombre, email, encriptar_password(pass1), telefono, datetime.now().strftime("%Y-%m-%d")])
+                    st.success(t.get('success_reg', 'Registrado correctamente'))
+                    st.session_state.mostrar_registro = False
                     st.rerun()
-                else:
-                    st.error("❌ Error de red. Intente de nuevo.")
+                except:
+                    st.error("Error al guardar")
+            else:
+                st.error(t.get('err_pass_match', 'Las contraseñas no coinciden'))
+
+    if st.button(t.get('btn_back_login', 'Volver')):
+        st.session_state.mostrar_registro = False
+        st.rerun()
