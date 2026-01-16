@@ -1,6 +1,6 @@
 # =============================================================================
 # ARCHIVO: usuarios.py
-# VERSIÓN: 8.1.0 (Cargo movido a Contacto + Sin líneas divisoras)
+# VERSIÓN: 8.2.0 (Errores en sitio - Adiós lista gigante)
 # =============================================================================
 import streamlit as st
 import pandas as pd
@@ -26,6 +26,7 @@ def validar_fuerza_clave(password):
     if re.search(r"[a-z]", password): score += 1
     if re.search(r"[0-9]", password): score += 1
     if re.search(r"[@$!%*?&#]", password): score += 1
+    
     if score < 3: return 20, "Débil 🔴", "#ff4b4b"
     elif score < 5: return 60, "Media 🟡", "#ffa500"
     else: return 100, "Robusta 🟢", "#21c354"
@@ -43,38 +44,54 @@ def interfaz_registro_legal(conn, t):
     estilos.mostrar_logo()
     st.markdown(f'<p class="swarco-title">{t.get("reg_tit", "ALTA DE USUARIO")}</p>', unsafe_allow_html=True)
 
-    # 1. ZONA IDENTIFICACIÓN (Solo Nombres)
+    # Inicializamos la lista de errores en memoria si no existe
+    if 'campos_error' not in st.session_state: st.session_state.campos_error = []
+
+    # Función helper para mostrar error justo debajo del input
+    def mostrar_error(campo):
+        if campo in st.session_state.campos_error:
+            st.error(f"⚠️ Campo requerido o inválido", icon="🚨")
+
+    # 1. ZONA IDENTIFICACIÓN
     with st.container(border=True):
         st.markdown(f"#### 👤 {t.get('p1_tit', 'Identificación')}")
         c1, c2 = st.columns(2)
-        n = c1.text_input("Nombre *")
-        a = c2.text_input("Apellido *")
-        # El cargo se movió abajo
-
-    # 2. ZONA UBICACIÓN Y DATOS PROFESIONALES (Aquí entra el Cargo)
-    with st.container(border=True):
-        st.markdown(f"#### 🌍 {t.get('p2_tit', 'Datos Profesionales y Contacto')}")
         
-        # Cargo y Empresa en la misma fila para ahorrar espacio vertical
+        n = c1.text_input("Nombre *")
+        if "n" in st.session_state.campos_error: c1.error("Falta Nombre")
+        
+        a = c2.text_input("Apellido *")
+        if "a" in st.session_state.campos_error: c2.error("Falta Apellido")
+
+    # 2. ZONA UBICACIÓN Y DATOS
+    with st.container(border=True):
+        st.markdown(f"#### 🌍 {t.get('p2_tit', 'Datos Profesionales')}")
+        
         c_cargo, c_empresa = st.columns(2)
-        cargo = c_cargo.text_input("Cargo / Puesto *", placeholder="Ej: Jefe de Sala")
+        cargo = c_cargo.text_input("Cargo / Puesto *")
+        if "cargo" in st.session_state.campos_error: c_cargo.error("Falta Cargo")
+        
         e = c_empresa.text_input("Empresa / Entidad *")
+        if "e" in st.session_state.campos_error: c_empresa.error("Falta Empresa")
         
         # Email
         m = st.text_input("Email Corporativo *").lower().strip()
         email_valido = False
-        if m:
-            if "@" not in m:
-                st.warning("⚠️ Formato incorrecto")
-            elif usuario_existe(conn, m):
-                st.error("⛔ DUPLICADO: Correo ya registrado.")
-            else:
-                st.success("✅ Disponible")
+        if "m" in st.session_state.campos_error:
+            st.error("Email obligatorio o formato incorrecto")
+        elif "duplicado" in st.session_state.campos_error:
+            st.error("⛔ Este correo ya está registrado.")
+        
+        # Validación visual inmediata (solo si escribe algo)
+        if m and "duplicado" not in st.session_state.campos_error:
+            if "@" not in m: st.warning("Formato incorrecto")
+            elif usuario_existe(conn, m): st.error("Ya existe")
+            else: 
+                st.success("Disponible")
                 email_valido = True
         
-        st.caption("Teléfono Móvil Internacional")
-        
-        # Selector de País y Teléfono (SIN st.divider)
+        # Teléfono
+        st.caption("Teléfono Móvil")
         col_pais, col_pref, col_tel = st.columns([3, 1.2, 3])
         
         with col_pais:
@@ -89,6 +106,7 @@ def interfaz_registro_legal(conn, t):
         with col_tel:
             raw_tel = st.text_input("Nº Móvil *", placeholder="Solo números")
             tl_num = limpiar_telefono_simple(raw_tel)
+            if "tl" in st.session_state.campos_error: st.error("Mínimo 6 dígitos")
 
     # 3. ZONA SEGURIDAD
     with st.container(border=True):
@@ -97,19 +115,13 @@ def interfaz_registro_legal(conn, t):
         p1 = st.text_input("Contraseña *", type='password')
         if p1:
             prog, etiq, col = validar_fuerza_clave(p1)
-            st.markdown(f"""
-                <div style="background-color:#ddd;height:5px;border-radius:2px;"><div style="width:{prog}%;background-color:{col};height:100%;"></div></div>
-                <small style="color:{col}">{etiq}</small>
-            """, unsafe_allow_html=True)
-
+            st.markdown(f"""<div style="background-color:#ddd;height:5px;"><div style="width:{prog}%;background-color:{col};height:100%;"></div></div><small style="color:{col}">{etiq}</small>""", unsafe_allow_html=True)
+        
         p2 = st.text_input("Repetir Contraseña *", type='password')
-        clave_valida = False
-        if p2:
-            if p1 == p2:
-                st.success("✅ Coinciden")
-                clave_valida = True
-            else:
-                st.error("❌ No coinciden")
+        
+        # Errores de seguridad
+        if "p1" in st.session_state.campos_error: st.error("Contraseña inválida o débil")
+        if "no_match" in st.session_state.campos_error: st.error("Las contraseñas no coinciden")
 
     # 4. ZONA LEGAL
     with st.container(border=True):
@@ -117,32 +129,53 @@ def interfaz_registro_legal(conn, t):
         link_gdpr = "https://www.swarco.com/privacy-policy"
         st.markdown(f"Debe leer y aceptar la [Política de Privacidad]({link_gdpr}).", unsafe_allow_html=True)
         chk = st.checkbox("He leído, comprendo y acepto los términos.")
+        if "chk" in st.session_state.campos_error: st.error("Debe aceptar para continuar")
 
     st.divider()
 
-    # --- BOTÓN FINAL ---
+    # --- BOTÓN DE REGISTRO ---
     if st.button("REGISTRAR USUARIO", type="primary", use_container_width=True):
-        errores = []
-        if not n: errores.append("Falta Nombre")
-        if not a: errores.append("Falta Apellido")
-        if not cargo: errores.append("Falta Cargo")
-        if not e: errores.append("Falta Empresa")
-        if not email_valido: errores.append("Email inválido")
-        if not tl_num or len(tl_num) < 6: errores.append("Teléfono inválido")
-        if not clave_valida: errores.append("Contraseñas inválidas")
-        if not chk: errores.append("Debe aceptar política")
-
-        if errores:
-            st.error("⛔ Faltan datos:")
-            for err in errores: st.error(f"- {err}")
+        # 1. Recopilamos errores
+        errores_detectados = []
+        
+        if not n: errores_detectados.append("n")
+        if not a: errores_detectados.append("a")
+        if not cargo: errores_detectados.append("cargo")
+        if not e: errores_detectados.append("e")
+        if not m or "@" not in m: errores_detectados.append("m")
+        if not tl_num or len(tl_num) < 6: errores_detectados.append("tl")
+        if not chk: errores_detectados.append("chk")
+        
+        # Validaciones complejas
+        if not p1 or not p2: 
+            errores_detectados.append("p1")
+        elif p1 != p2:
+            errores_detectados.append("no_match")
         else:
+            # Fuerza
+            fuerza, _, _ = validar_fuerza_clave(p1)
+            if fuerza < 100: errores_detectados.append("p1")
+
+        # Duplicado (Validación final)
+        if m and usuario_existe(conn, m):
+            errores_detectados.append("duplicado")
+
+        # 2. DECISIÓN
+        if errores_detectados:
+            # Si hay errores, los guardamos en estado y RECARGAMOS
+            # Esto hace que aparezcan los mensajes rojos DEBAJO de cada campo
+            st.session_state.campos_error = errores_detectados
+            st.rerun()
+        else:
+            # TODO OK
             try:
-                # GUARDADO
                 conn.worksheet("Usuarios").append_row([
                     n, a, cargo, e, pais_sel, pref_auto, tl_num, m, encriptar_password(p1)
                 ])
                 correo.enviar_correo_bienvenida(m, n, m, p1)
-                st.success("✅ REGISTRO EXITOSO")
+                
+                st.success("✅ USUARIO REGISTRADO EXITOSAMENTE")
+                st.session_state.campos_error = [] # Limpiamos errores
                 time.sleep(2)
                 st.session_state.mostrar_registro = False
                 st.rerun()
@@ -151,6 +184,7 @@ def interfaz_registro_legal(conn, t):
 
     if st.button("Cancelar"):
         st.session_state.mostrar_registro = False
+        st.session_state.campos_error = []
         st.rerun()
 
 def gestionar_acceso(conn, t):
