@@ -1,6 +1,6 @@
 # =============================================================================
 # ARCHIVO: usuarios.py
-# VERSIÓN: 6.1.0 (Legal Restaurado + Validación Inmediata)
+# VERSIÓN: 8.0.0 (Importando módulo externo 'paises.py')
 # =============================================================================
 import streamlit as st
 import pandas as pd
@@ -9,8 +9,9 @@ import re
 import time
 import estilos
 import correo
+import paises  # <--- AQUÍ LLAMAMOS A TU ARCHIVO EXISTENTE
 
-# --- Funciones de Lógica ---
+# --- Lógica Auxiliar ---
 def limpiar_telefono_simple(texto):
     if not texto: return ""
     return re.sub(r'[^0-9]', '', texto)
@@ -51,32 +52,50 @@ def interfaz_registro_legal(conn, t):
         a = c2.text_input("Apellido *")
         cargo = st.text_input("Cargo / Puesto *", placeholder="Ej: Jefe de Sala, Técnico")
 
-    # 2. ZONA UBICACIÓN (Validación Inmediata)
+    # 2. ZONA UBICACIÓN (Usando paises.py)
     with st.container(border=True):
         st.markdown(f"#### 🌍 {t.get('p2_tit', 'Ubicación')}")
         e = st.text_input("Empresa / Entidad *")
         
+        # Email con validación inmediata
         m = st.text_input("Email Corporativo *").lower().strip()
         email_valido = False
         if m:
             if "@" not in m:
                 st.warning("⚠️ Formato incorrecto")
             elif usuario_existe(conn, m):
-                st.error("⛔ USUARIO DUPLICADO: Este correo ya existe.")
+                st.error("⛔ USUARIO DUPLICADO: Correo ya registrado.")
             else:
-                st.success("✅ Correo válido y disponible")
+                st.success("✅ Disponible")
                 email_valido = True
         
-        cp1, cp2 = st.columns([1, 2])
-        prefijo = cp1.selectbox("Prefijo", ["+34 (ES)", "+58 (VE)", "+1 (US)", "+57 (CO)", "+54 (AR)", "+49 (DE)"])
-        raw_tel = cp2.text_input("Móvil *", placeholder="Solo números")
-        tl_num = limpiar_telefono_simple(raw_tel)
-        telefono_completo = f"{prefijo.split()[0]} {tl_num}"
+        st.divider()
+        st.caption("Contacto Internacional")
+        
+        # --- LLAMADA A TU ARCHIVO PAISES.PY ---
+        col_pais, col_pref, col_tel = st.columns([3, 1.5, 3])
+        
+        with col_pais:
+            # Función 1 de tu archivo: Obtener nombres
+            lista_paises = paises.obtener_lista_nombres()
+            
+            # Intentamos seleccionar España por defecto si existe en tu lista
+            idx = lista_paises.index("España") if "España" in lista_paises else 0
+            pais_sel = st.selectbox("País *", lista_paises, index=idx)
+        
+        with col_pref:
+            # Función 2 de tu archivo: Obtener prefijo del país seleccionado
+            pref_auto = paises.obtener_prefijo(pais_sel)
+            st.text_input("Prefijo", value=pref_auto, disabled=True)
+        
+        with col_tel:
+            raw_tel = st.text_input("Nº Móvil *", placeholder="Solo números")
+            tl_num = limpiar_telefono_simple(raw_tel)
 
-    # 3. ZONA SEGURIDAD (Validación Inmediata)
+    # 3. ZONA SEGURIDAD
     with st.container(border=True):
         st.markdown(f"#### 🔒 {t.get('p3_tit', 'Seguridad')}")
-        st.caption("Mínimo 8 caracteres, Mayúscula, Minúscula, Número y Símbolo.")
+        st.caption("Requisitos: 8 caracteres, Mayús, Minús, Núm y Símbolo.")
         
         p1 = st.text_input("Contraseña *", type='password')
         if p1:
@@ -95,18 +114,12 @@ def interfaz_registro_legal(conn, t):
             else:
                 st.error("❌ No coinciden")
 
-    # 4. ZONA LEGAL (RESTAURADA CORRECTAMENTE)
+    # 4. ZONA LEGAL
     with st.container(border=True):
         st.markdown(f"#### ⚖️ {t.get('p4_tit', 'Términos Legales')}")
-        
-        # Enlace Markdown funcional
         link_gdpr = "https://www.swarco.com/privacy-policy"
-        st.markdown(f"""
-        De conformidad con el Reglamento General de Protección de Datos (RGPD), 
-        debe leer y aceptar nuestra [Política de Privacidad y Protección de Datos]({link_gdpr}).
-        """, unsafe_allow_html=True)
-        
-        chk = st.checkbox("He leído, comprendo y acepto los términos legales.")
+        st.markdown(f"Debe leer y aceptar la [Política de Privacidad]({link_gdpr}).", unsafe_allow_html=True)
+        chk = st.checkbox("He leído, comprendo y acepto los términos.")
 
     st.divider()
 
@@ -120,22 +133,31 @@ def interfaz_registro_legal(conn, t):
         if not email_valido: errores.append("Email inválido o duplicado")
         if not tl_num or len(tl_num) < 6: errores.append("Teléfono inválido")
         if not clave_valida: errores.append("Contraseñas no válidas")
-        if not chk: errores.append("Debe aceptar la política de privacidad")
+        if not chk: errores.append("Debe aceptar política")
 
         if errores:
-            st.error("⛔ NO SE PUEDE COMPLETAR EL REGISTRO:")
+            st.error("⛔ Faltan datos:")
             for err in errores: st.error(f"- {err}")
         else:
             try:
-                # Guardar (Orden: Nombre, Apellido, Cargo, Empresa, Tel, Email, Pass)
+                # GUARDADO CON COLUMNAS SEPARADAS
+                # Orden: Nombre | Apellido | Cargo | Empresa | País | Prefijo | Teléfono | Email | Password
                 conn.worksheet("Usuarios").append_row([
-                    n, a, cargo, e, telefono_completo, m, encriptar_password(p1)
+                    n, 
+                    a, 
+                    cargo, 
+                    e, 
+                    pais_sel,   # Dato de paises.py
+                    pref_auto,  # Dato de paises.py
+                    tl_num,     # Teléfono limpio
+                    m, 
+                    encriptar_password(p1)
                 ])
                 
-                # Enviar Correo
+                # ENVÍO DE CORREO
                 correo.enviar_correo_bienvenida(m, n, m, p1)
                 
-                st.success("✅ USUARIO REGISTRADO CORRECTAMENTE")
+                st.success("✅ REGISTRO EXITOSO")
                 time.sleep(2)
                 st.session_state.mostrar_registro = False
                 st.rerun()
@@ -147,7 +169,7 @@ def interfaz_registro_legal(conn, t):
         st.session_state.mostrar_registro = False
         st.rerun()
 
-# --- Login ---
+# --- Login (Sin cambios) ---
 def gestionar_acceso(conn, t):
     estilos.mostrar_logo()
     st.markdown(f'<p class="swarco-title">{t.get("login_tit", "Acceso")}</p>', unsafe_allow_html=True)
