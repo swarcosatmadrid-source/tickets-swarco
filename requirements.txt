@@ -1,9 +1,9 @@
 streamlit
 pandas
-deep-translator
-phonenumbers
-pycountry
 st-gsheets-connection
 gspread
-streamlit_javascript
+pycountry
+phonenumbers
+deep-translator
+streamlit-javascript
 xlsxwriter
