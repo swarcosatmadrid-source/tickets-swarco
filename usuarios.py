@@ -1,33 +1,28 @@
 # ==========================================
 # ARCHIVO: usuarios.py
 # PROYECTO: TicketV0
-# VERSIÓN: v1.4 (Pacto de Comparación)
-# FECHA: 16-Ene-2026
+# VERSIÓN: v1.5 (LOOK RECUPERADO DE FOTO)
 # ==========================================
 import streamlit as st
 import pandas as pd
 import hashlib
-from datetime import datetime
 import estilos
 
 def encriptar_password(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
 def gestionar_acceso(conn, t):
-    # 1. Mundito de idiomas (superior derecha)
-    col_v, col_m = st.columns([0.9, 0.1])
-    with col_m:
-        st.markdown("### 🌐")
-
     estilos.mostrar_logo()
-    estilos.mostrar_cabecera_swarco()
     
-    # 2. Formulario de Acceso
+    # Encabezado de la foto
+    st.markdown('<p class="swarco-title">Swarco Traffic Spain</p>', unsafe_allow_html=True)
+    st.markdown('<p class="swarco-subtitle">🔐 Acceso Usuarios Registrados</p>', unsafe_allow_html=True)
+    
     with st.container():
         with st.form("login_form"):
-            email = st.text_input(t.get('email_label', 'Correo')).lower().strip()
-            password = st.text_input(t.get('pass_label', 'Contraseña'), type='password')
-            submit = st.form_submit_button("ENTRAR")
+            email = st.text_input("Usuario / ID").lower().strip()
+            password = st.text_input("Contraseña", type='password')
+            submit = st.form_submit_button("INGRESAR AL SISTEMA")
 
             if submit:
                 try:
@@ -43,42 +38,30 @@ def gestionar_acceso(conn, t):
                     else: st.error("Usuario no registrado")
                 except: st.error("Error de conexión")
 
-    # 3. Botón de Registro fuera del cuadro
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("¿NO TIENES CUENTA? REGÍSTRATE AQUÍ"):
+    # Botón naranja de abajo
+    if st.button("No tengo cuenta, quiero registrarme"):
         st.session_state.mostrar_registro = True
         st.rerun()
 
-    # 4. Footer Swarco
-    st.markdown("---")
-    st.markdown("""
-        <div style="text-align: center; color: #999; font-size: 12px;">
-            SWARCO | First Choice in Traffic Solutions<br>
-            <a href="#" style="color:#999; text-decoration:none;">Legal Notice</a> | 
-            <a href="#" style="color:#999; text-decoration:none;">Privacy Policy</a>
-        </div>
-    """, unsafe_allow_html=True)
-
 def interfaz_registro_legal(conn, t):
-    st.subheader(t.get('reg_title', 'Registro'))
+    st.markdown('<p class="swarco-title">Registro SAT</p>', unsafe_allow_html=True)
     with st.form("reg_form"):
         nombre = st.text_input("Nombre")
         email = st.text_input("Email")
-        telefono = st.text_input("Teléfono")
         pass1 = st.text_input("Contraseña", type='password')
-        pass2 = st.text_input("Confirmar", type='password')
-        
-        if st.form_submit_button("REGISTRAR"):
+        pass2 = st.text_input("Confirmar Contraseña", type='password')
+        if st.form_submit_button("CREAR CUENTA"):
             if pass1 == pass2:
                 try:
                     ws = conn.worksheet("Usuarios")
-                    ws.append_row([nombre, email, encriptar_password(pass1), telefono, datetime.now().strftime("%Y-%m-%d")])
-                    st.success("Registrado!")
+                    ws.append_row([nombre, email, encriptar_password(pass1)])
+                    st.success("¡Registrado!")
                     st.session_state.mostrar_registro = False
                     st.rerun()
-                except: st.error("Error al guardar")
+                except: st.error("Error")
             else: st.error("Las contraseñas no coinciden")
 
-    if st.button("Volver al Login"):
+    if st.button("Volver al Inicio"):
         st.session_state.mostrar_registro = False
         st.rerun()
