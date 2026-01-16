@@ -1,12 +1,28 @@
 # ARCHIVO: main.py
 # PROYECTO: TicketV0
-# VERSIÓN: v1.3-ONLINE (Producción)
+# VERSIÓN: v1.4-FORCE (Con Autoinstalación)
 # FECHA: 16-Ene-2026
-# DESCRIPCIÓN: Archivo principal. Gestiona la navegación, el selector de idioma rápido y la conexión a BD.
+# DESCRIPCIÓN: Incluye un bloque de 'Autoreparación' para instalar librerías faltantes.
 
 import streamlit as st
 import pandas as pd
-from streamlit_gsheets_connection import GSheetsConnection
+import subprocess
+import sys
+
+# --- 0. BLOQUE DE AUTO-REPARACIÓN (EL PARCHE) ---
+# Si el servidor dice que no tiene la librería, la instalamos aquí mismo.
+try:
+    from streamlit_gsheets_connection import GSheetsConnection
+except ImportError:
+    st.warning("⚠️ Librería faltante detectada. Intentando instalación automática...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "st-gsheets-connection"])
+        from streamlit_gsheets_connection import GSheetsConnection
+        st.success("✅ Librería instalada. Recargando...")
+        st.rerun()
+    except Exception as e:
+        st.error(f"❌ No se pudo instalar la librería automáticamente: {e}")
+        st.stop()
 
 # --- IMPORTACIÓN DE MÓDULOS ---
 import estilos
@@ -28,7 +44,7 @@ if 'autenticado' not in st.session_state:
 if 'codigo_lang' not in st.session_state:
     st.session_state.codigo_lang = 'es' 
 
-# --- 3. CALLBACK IDIOMA (Fix Doble Clic) ---
+# --- 3. CALLBACK IDIOMA ---
 def actualizar_idioma_callback():
     seleccion = st.session_state.selector_idioma_key
     nuevo_codigo = seleccion.split('(')[-1].split(')')[0]
@@ -66,6 +82,7 @@ try:
     conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
     st.error(f"⚠️ Error Crítico de Conexión: {e}")
+    st.info("Verifique sus Secrets o la conexión a internet.")
     st.stop()
 
 # --- 7. NAVEGACIÓN ---
@@ -78,5 +95,3 @@ if not st.session_state.autenticado:
         usuarios.gestionar_acceso(conn, t)
 else:
     tickets.interfaz_tickets(conn, t)
-
-
