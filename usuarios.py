@@ -1,38 +1,19 @@
 # =============================================================================
 # ARCHIVO: usuarios.py
-# VERSIÓN: 5.0.0 (Validaciones, Prefijos, Limpieza de Input y Legal)
+# VERSIÓN: 5.1.0 (Sin Globos + Cierre Automático + Validación Rápida)
 # =============================================================================
 import streamlit as st
 import pandas as pd
 import hashlib
-import re # Para limpiar teléfonos y validar email
+import re
 import estilos
 import correo
+import time # Para dar un micro-segundo de feedback antes de cerrar
 
 # --- Lógica de Negocio ---
 def limpiar_telefono(texto):
-    """Elimina letras, deja solo números y el símbolo +"""
     if not texto: return ""
     return re.sub(r'[^0-9+]', '', texto)
-
-def validar_clave_segura(clave):
-    """Reglas: Mínimo 6 caracteres"""
-    if len(clave) < 6: return False
-    return True
-
-def obtener_prefijo_pais(pais_input):
-    """Diccionario básico de prefijos para autocompletar"""
-    prefijos = {
-        'españa': '+34', 'spain': '+34',
-        'venezuela': '+58',
-        'colombia': '+57',
-        'mexico': '+52', 'méxico': '+52',
-        'usa': '+1', 'eeuu': '+1',
-        'argentina': '+54',
-        'alemania': '+49', 'germany': '+49'
-    }
-    p = pais_input.lower().strip()
-    return prefijos.get(p, '')
 
 def encriptar_password(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
@@ -42,83 +23,61 @@ def interfaz_registro_legal(conn, t):
     estilos.mostrar_logo()
     st.markdown(f'<p class="swarco-title">{t.get("reg_tit", "REGISTRO OFICIAL")}</p>', unsafe_allow_html=True)
 
-    # Inicialización de errores
     if 'err' not in st.session_state: st.session_state.err = []
+    def check_err(k): return k in st.session_state.err
 
-    # Función para inyectar estilo de error
-    def check_err(campo_key):
-        return campo_key in st.session_state.err
-
+    # Usamos st.form para evitar recargas constantes, pero cerramos rápido al final
     with st.form("registro_pro"):
         
-        # --- ZONA 1: IDENTIFICACIÓN ---
+        # ZONA 1
         with st.container(border=True):
             st.markdown(f"#### 👤 {t.get('p1_tit', 'Identificación')}")
-            st.info("Ingrese sus datos tal como aparecen en su identificación corporativa.", icon="ℹ️")
-            
             c1, c2 = st.columns(2)
-            # Nombre
-            nom_err = "Nombre es obligatorio" if check_err("n") else None
-            n = c1.text_input(t.get("nombre", "Nombre"), help="Ej: Juan", placeholder="Su nombre")
-            if check_err("n"): c1.error("Campo obligatorio")
+            n = c1.text_input(t.get("nombre", "Nombre"))
+            if check_err("n"): c1.error("Requerido")
+            a = c2.text_input(t.get("apellido", "Apellido"))
+            if check_err("a"): c2.error("Requerido")
 
-            # Apellido
-            a = c2.text_input(t.get("apellido", "Apellido"), help="Ej: Pérez", placeholder="Su apellido")
-            if check_err("a"): c2.error("Campo obligatorio")
-
-        # --- ZONA 2: UBICACIÓN Y CONTACTO (Inteligente) ---
+        # ZONA 2
         with st.container(border=True):
             st.markdown(f"#### 🌍 {t.get('p2_tit', 'Ubicación')}")
+            e = st.text_input(t.get("cliente", "Empresa"))
+            if check_err("e"): st.error("Falta Empresa")
             
-            e = st.text_input(t.get("cliente", "Empresa / Entidad"), placeholder="Ej: Ayuntamiento de Madrid")
-            if check_err("e"): st.error("Falta la empresa")
-
             c3, c4 = st.columns(2)
-            # País
-            p = c3.text_input(t.get("pais", "País"), placeholder="Ej: España")
-            if check_err("p"): c3.error("Falta país")
+            p = c3.text_input(t.get("pais", "País"))
+            if check_err("p"): c3.error("Requerido")
             
-            # Lógica de Teléfono Inteligente
-            prefijo_sugerido = obtener_prefijo_pais(p) if p else ""
-            label_tel = t.get("tel", "Teléfono Móvil")
-            if prefijo_sugerido: label_tel += f" (Sugerido: {prefijo_sugerido})"
+            # Teléfono con limpieza
+            raw_tel = c4.text_input(t.get("tel", "Teléfono"), help="Solo números")
+            tl = limpiar_telefono(raw_tel)
+            if check_err("tl"): c4.error("Mínimo 5 dígitos")
             
-            raw_tel = c4.text_input(label_tel, value=prefijo_sugerido, help="Solo números. Se eliminan letras automáticamente.")
-            tl = limpiar_telefono(raw_tel) # AUTO-LIMPIEZA DE LETRAS
-            if check_err("tl"): c4.error("Teléfono inválido")
-            
-            # Email
-            m = st.text_input(t.get("email", "Correo Corporativo"), help="Se enviará validación").lower().strip()
-            if check_err("m"): st.error("Email inválido o vacío")
+            m = st.text_input(t.get("email", "Email")).lower().strip()
+            if check_err("m"): st.error("Email inválido")
 
-        # --- ZONA 3: SEGURIDAD (Niveles) ---
+        # ZONA 3
         with st.container(border=True):
             st.markdown(f"#### 🔒 {t.get('p3_tit', 'Seguridad')}")
-            p1 = st.text_input(t.get("pass", "Contraseña"), type='password', help="Mínimo 6 caracteres")
-            p2 = st.text_input(t.get("pass_rep", "Repetir Contraseña"), type='password')
-            
-            if p1 and len(p1) < 6:
-                st.warning("⚠️ La contraseña es muy corta (mínimo 6)")
-            if check_err("p1"): st.error("Falta contraseña")
+            p1 = st.text_input(t.get("pass", "Contraseña"), type='password')
+            p2 = st.text_input(t.get("pass_rep", "Repetir"), type='password')
+            if check_err("p1"): st.error("Contraseña requerida (min 6)")
 
-        # --- ZONA 4: LEGAL (Enlace Real) ---
+        # ZONA 4
         with st.container(border=True):
-            st.markdown(f"#### ⚖️ {t.get('p4_tit', 'Legal')}")
-            
-            # ENLACE REAL A PROTECCIÓN DE DATOS
-            link_gdpr = "https://www.swarco.com/privacy-policy"
-            st.markdown(f"He leído y acepto la [Política de Privacidad y Protección de Datos]({link_gdpr}) de SWARCO.", unsafe_allow_html=True)
-            
-            chk = st.checkbox(t.get("acepto", "Acepto los términos legales"))
-            if check_err("chk"): st.error("Debe aceptar los términos para continuar")
+            link = "https://www.swarco.com/privacy-policy"
+            st.markdown(f"Acepto la [Política de Privacidad]({link}) de SWARCO.")
+            chk = st.checkbox(t.get("acepto", "He leído y acepto"))
+            if check_err("chk"): st.error("Obligatorio aceptar")
 
         st.divider()
         
-        # --- BOTÓN FINAL ---
-        if st.form_submit_button(t.get("btn_registro_final", "REGISTRAR CUENTA OFICIAL")):
+        # BOTÓN DE ACCIÓN
+        submitted = st.form_submit_button(t.get("btn_registro_final", "REGISTRAR AHORA"))
+        
+        if submitted:
             errores = []
-            
-            # Validaciones
+            # Validación
             if not n: errores.append("n")
             if not a: errores.append("a")
             if not e: errores.append("e")
@@ -127,34 +86,41 @@ def interfaz_registro_legal(conn, t):
             if not tl or len(tl) < 5: errores.append("tl")
             if not p1 or len(p1) < 6: errores.append("p1")
             if not chk: errores.append("chk")
-            
+
             if errores:
                 st.session_state.err = errores
-                st.error(f"⛔ {t.get('error_campos', 'Error en el formulario. Revise las alertas rojas.')}")
-                st.rerun()
+                st.error("⚠️ Revise los campos marcados en rojo.")
+                st.rerun() # Recarga inmediata para mostrar los rojos
             
             elif p1 != p2:
-                st.error("⛔ Las contraseñas no coinciden.")
+                st.error("Las contraseñas no coinciden.")
             
             else:
-                # ÉXITO
+                # --- ÉXITO ---
                 try:
                     conn.worksheet("Usuarios").append_row([n, a, e, p, m, tl, encriptar_password(p1)])
+                    
+                    # Enviar correo
                     correo.enviar_correo_bienvenida(m, n, m, "******")
-                    st.balloons()
-                    st.success(f"✅ {t.get('exito_reg', 'Cuenta creada correctamente.')}")
-                    st.session_state.mostrar_registro = False
+                    
+                    # Feedback sutil (Sin globos)
+                    st.success(f"✅ Usuario {n} creado. Enviando correo...")
+                    
+                    # LIMPIEZA Y CIERRE AUTOMÁTICO
                     st.session_state.err = []
-                    # st.rerun() # Opcional: esperar a que el usuario lea
+                    st.session_state.mostrar_registro = False
+                    time.sleep(1.5) # Pausa breve para leer el mensaje verde
+                    st.rerun() # ¡PUM! Se cierra el formulario y vuelve al inicio
+                    
                 except Exception as ex:
-                    st.error(f"Error de Servidor: {ex}")
+                    st.error(f"Error técnico: {ex}")
 
-    if st.button("⬅ " + t.get("btn_volver", "Cancelar y Volver")):
+    # Botón cancelar fuera del form
+    if st.button("Cancelar"):
         st.session_state.mostrar_registro = False
         st.session_state.err = []
         st.rerun()
 
-# Función de Login para mantener coherencia
 def gestionar_acceso(conn, t):
     estilos.mostrar_logo()
     st.markdown(f'<p class="swarco-title">{t.get("login_tit", "Acceso")}</p>', unsafe_allow_html=True)
@@ -165,11 +131,20 @@ def gestionar_acceso(conn, t):
             p = st.text_input(t.get("pass", "Contraseña"), type='password')
             
             if st.form_submit_button(t.get("btn_entrar", "INICIAR SESIÓN")):
-                # Lógica de login (igual que siempre)
-                pass 
+                try:
+                    df = pd.DataFrame(conn.worksheet("Usuarios").get_all_records())
+                    if not df.empty and u in df['email'].values:
+                        real = df.loc[df['email']==u, 'password'].values[0]
+                        if encriptar_password(p) == real:
+                            st.session_state.autenticado = True
+                            st.session_state.user_email = u
+                            st.session_state.pagina_actual = 'menu'
+                            st.rerun()
+                        else: st.error("Contraseña incorrecta")
+                    else: st.error("Usuario no encontrado")
+                except: st.error("Error de conexión")
     
     st.markdown("---")
-    st.caption("¿No tiene credenciales?")
     if st.button(t.get("btn_ir_registro", "Solicitar Nueva Cuenta")):
         st.session_state.mostrar_registro = True
         st.rerun()
