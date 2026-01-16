@@ -1,80 +1,70 @@
-# =============================================================================
-# ARCHIVO: usuarios.py
-# PROYECTO: Sistema de Gestión SAT - SWARCO Traffic Spain
-# VERSIÓN: 2.2.4 (Campos Completos + Alerta Roja)
-# FECHA ÚLTIMA MODIF: 16-Ene-2026
-# DESCRIPCIÓN: Gestión de acceso y registro detallado de usuarios.
-# =============================================================================
-
 import streamlit as st
-import hashlib
-import estilos
-import pandas as pd
+import gspread
+from google.oauth2.service_account import Credentials
+from streamlit_javascript import st_javascript
 
-def encriptar_password(password):
-    return hashlib.sha256(str.encode(password)).hexdigest()
+# === IMPORTACIONES SEGURAS ===
+try:
+    import estilos
+    import idiomas
+    import usuarios
+    import menu_principal
+    import correo # Vital para el registro
+except ImportError as e:
+    st.error(f"❌ Error Crítico: Falta el archivo {e.name}.py")
+    st.stop()
 
-def gestionar_acceso(conn, t):
-    estilos.mostrar_logo()
-    st.markdown(f'<p class="swarco-title">{t.get("login_tit", "Acceso Usuarios")}</p>', unsafe_allow_html=True)
-    with st.form("login_form"):
-        email = st.text_input(t.get("user_id", "Usuario")).lower().strip()
-        passw = st.text_input(t.get("pass", "Contraseña"), type='password')
-        if st.form_submit_button(t.get("btn_entrar", "INGRESAR")):
-            # Lógica de validación con conn...
-            pass
-    if st.button(t.get("btn_ir_registro", "Crear cuenta")):
-        st.session_state.mostrar_registro = True
+# === CONFIGURACIÓN ===
+st.set_page_config(page_title="Swarco Portal SAT", page_icon="🚦", layout="centered")
+
+# === ESTADO INICIAL ===
+if 'autenticado' not in st.session_state: st.session_state.autenticado = False
+if 'pagina_actual' not in st.session_state: st.session_state.pagina_actual = 'login'
+if 'codigo_lang' not in st.session_state:
+    # Detección automática del navegador
+    js_lang = st_javascript('navigator.language')
+    st.session_state.codigo_lang = js_lang.split('-')[0] if js_lang else 'es'
+
+# === CARGA DE RECURSOS ===
+estilos.cargar_estilos()
+t = idiomas.traducir_interfaz(st.session_state.codigo_lang)
+
+# === CONEXIÓN BD ===
+@st.cache_resource
+def conectar_db():
+    try:
+        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        creds = Credentials.from_service_account_info(st.secrets["connections"]["gsheets"]["service_account"], scopes=scope)
+        client = gspread.authorize(creds)
+        return client.open_by_url(st.secrets["connections"]["gsheets"]["spreadsheet"])
+    except: return None
+
+conn = conectar_db()
+
+# === SELECTOR DE IDIOMA (SIDEBAR) ===
+with st.sidebar:
+    st.write("🌐 Language")
+    langs = idiomas.obtener_lista_idiomas()
+    idx = 0
+    if st.session_state.codigo_lang in langs['codigo'].values:
+        idx = int(langs[langs['codigo'] == st.session_state.codigo_lang].index[0])
+    sel = st.selectbox("Idioma", langs['nombre'], index=idx, label_visibility="collapsed")
+    new_code = langs[langs['nombre'] == sel]['codigo'].values[0]
+    if new_code != st.session_state.codigo_lang:
+        st.session_state.codigo_lang = new_code
         st.rerun()
 
-def interfaz_registro_legal(conn, t):
-    estilos.mostrar_logo()
-    st.markdown(f'<p class="swarco-title">{t.get("reg_tit", "Registro")}</p>', unsafe_allow_html=True)
-    
-    if 'err_reg' not in st.session_state: st.session_state.err_reg = []
-    def l_e(txt, k): return f":red[{txt} *]" if k in st.session_state.err_reg else f"{txt} *"
-
-    with st.form("reg_form"):
-        st.subheader(t.get("p1_tit", "1. Identificación"))
-        c1, c2 = st.columns(2)
-        nom = c1.text_input(l_e(t.get("nombre", "Nombre"), "n"))
-        ape = c2.text_input(l_e(t.get("apellido", "Apellido"), "a"))
-        
-        st.subheader(t.get("p2_tit", "2. Ubicación"))
-        emp = st.text_input(l_e(t.get("cliente", "Empresa"), "e"))
-        pai = st.text_input(l_e(t.get("pais", "País"), "p"))
-        eml = st.text_input(l_e(t.get("email", "Email"), "m")).lower().strip()
-        tel = st.text_input(l_e(t.get("tel", "Teléfono"), "t"))
-
-        st.subheader(t.get("p3_tit", "3. Seguridad"))
-        p1 = st.text_input(l_e(t.get("pass", "Contraseña"), "p1"), type='password')
-        p2 = st.text_input(l_e(t.get("pass_rep", "Repetir"), "p2"), type='password')
-
-        st.subheader(t.get("p4_tit", "4. Validación"))
-        acc = st.checkbox(t.get("acepto", "Acepto los términos"))
-
-        if st.form_submit_button(t.get("btn_registro_final", "REGISTRAR")):
-            st.session_state.err_reg = []
-            if not nom: st.session_state.err_reg.append("n")
-            if not ape: st.session_state.err_reg.append("a")
-            if not emp: st.session_state.err_reg.append("e")
-            if not pai: st.session_state.err_reg.append("p")
-            if not eml: st.session_state.err_reg.append("m")
-            if not tel: st.session_state.err_reg.append("t")
-            if not p1: st.session_state.err_reg.append("p1")
-            if not acc: st.session_state.err_reg.append("p2") # Usamos p2 para el checkbox
-
-            if st.session_state.err_reg:
-                st.error("⚠️ Rellene los campos que se encuentran en rojo")
-                st.rerun()
-            elif p1 != p2:
-                st.error(t.get("no_match", "Las claves no coinciden"))
-            else:
-                # Aquí va el guardado en Sheets...
-                pass
-
-    if st.button(t.get("btn_volver", "VOLVER")):
-        st.session_state.mostrar_registro = False
-        st.session_state.err_reg = []
-        st.rerun()
+# === RUTEADOR PRINCIPAL ===
+if not conn:
+    st.error("🚨 Error: No hay conexión con Google Sheets.")
+else:
+    if not st.session_state.autenticado:
+        if st.session_state.get('mostrar_registro', False):
+            usuarios.interfaz_registro_legal(conn, t)
+        else:
+            usuarios.gestionar_acceso(conn, t)
+    else:
+        if st.session_state.pagina_actual == 'menu':
+            menu_principal.mostrar_menu(conn, t)
+        # Aquí se añaden el resto de módulos (SAT, Repuestos) cuando lleguemos a ese paso
 
