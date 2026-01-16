@@ -1,15 +1,12 @@
 # =============================================================================
 # ARCHIVO: estilos.py
-# PROYECTO: Sistema de Gestión SAT - SWARCO Traffic Spain
-# VERSIÓN: 1.1.0 (Color #FF5D00 | Ruta logo/logo.png)
-# FECHA ÚLTIMA MODIF: 16-Ene-2026
-# DESCRIPCIÓN: Identidad visual corporativa.
+# VERSIÓN: 3.0.0 (ARQUITECTURA RÍGIDA)
 # =============================================================================
-
 import streamlit as st
+import os
 
 def cargar_estilos():
-    """Configura el CSS con el naranja oficial de Swarco."""
+    """Define la identidad visual crítica."""
     st.markdown("""
         <style>
         .swarco-title {
@@ -22,16 +19,24 @@ def cargar_estilos():
         .stButton>button {
             background-color: #FF5D00 !important;
             color: white !important;
-            font-weight: bold;
-            border-radius: 8px;
-            height: 3em;
             border: none;
+            border-radius: 5px;
+            height: 45px;
+            font-weight: bold;
+        }
+        /* Corrección para que los inputs se vean bien */
+        .stTextInput>div>div>input {
+            border: 1px solid #ddd;
         }
         </style>
     """, unsafe_allow_html=True)
 
 def mostrar_logo():
-    """Muestra el logo centrado desde la carpeta de GitHub."""
+    """Muestra el logo sin hacer preguntas complejas al sistema."""
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        st.image("logo/logo.png", use_container_width=True)
+        # Intenta cargar la ruta exacta. Si falla, pone texto para no romper la app.
+        try:
+            st.image("logo/logo.png", use_container_width=True)
+        except:
+            st.markdown("<h2 style='text-align:center; color:#FF5D00'>SWARCO</h2>", unsafe_allow_html=True)
