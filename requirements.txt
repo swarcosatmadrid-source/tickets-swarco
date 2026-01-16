@@ -2,8 +2,10 @@ streamlit
 pandas
 st-gsheets-connection
 gspread
+google-auth
 pycountry
 phonenumbers
 deep-translator
 streamlit-javascript
 xlsxwriter
+
