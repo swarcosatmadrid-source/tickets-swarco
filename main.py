@@ -1,10 +1,10 @@
 # ==========================================
 # ARCHIVO: main.py
 # PROYECTO: TicketV1
-# VERSIÓN: v1.1 (Modo Diagnóstico) 🛠️
+# VERSIÓN: v1.2 (Full UI + Debug) 🛠️
 # FECHA: 16-Ene-2026
-# DESCRIPCIÓN: Código principal completo. Incluye sistema de
-#              reporte de errores detallado para saber por qué falla la conexión.
+# DESCRIPCIÓN: Versión completa. Mantiene el selector de idiomas Y
+#              agrega el diagnóstico detallado de errores de conexión.
 # ==========================================
 
 import streamlit as st
@@ -12,30 +12,26 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 
-# --- IMPORTACIÓN DE MÓDULOS PROPIOS ---
-# Usamos try/except para saber si falta algún archivo local
+# --- IMPORTACIÓN DE MÓDULOS ---
 try:
     import estilos
     import usuarios
     import tickets
-    import idiomas
+    from idiomas import traducir_interfaz
 except ImportError as e:
-    st.error(f"⚠️ Error crítico: Faltan archivos del sistema. {e}")
+    st.error(f"⚠️ Faltan archivos: {e}")
     st.stop()
 
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Swarco Spain SAT", page_icon="🚦", layout="centered")
 
-# --- 2. CONEXIÓN ROBUSTA A GOOGLE (CON DIAGNÓSTICO) ---
+# --- 2. CONEXIÓN ROBUSTA (CON DIAGNÓSTICO) ---
 def conectar_google_sheets():
-    """
-    Intenta conectar a Google Sheets.
-    Si falla, MUESTRA EL ERROR REAL en pantalla para poder arreglarlo.
-    """
+    """Conecta a Google Sheets y MUESTRA EL ERROR si falla."""
     try:
-        # A) Verificación de Secrets
+        # A) Verificación rápida de Secrets
         if "connections" not in st.secrets:
-            st.error("❌ ERROR CRÍTICO: No se detectan los 'Secrets'. Debes pegarlos en el panel de Streamlit Cloud (Settings -> Secrets).")
+            st.error("❌ ERROR: No se detectan los 'Secrets'. Pégalos en el panel de Streamlit.")
             return None
 
         # B) Definimos permisos
@@ -55,40 +51,62 @@ def conectar_google_sheets():
         return sheet
         
     except Exception as e:
-        # AQUÍ ESTÁ LA CLAVE: Mostramos el mensaje técnico del error
-        st.error(f"🔥 ERROR DE CONEXIÓN DETALLADO: {e}")
-        st.info("💡 Pista: Si el error dice 'insufficient permissions', comparte el Excel con el email del robot.")
+        # AQUÍ ESTÁ LA CLAVE: Mostramos el mensaje técnico
+        st.error(f"🔥 ERROR DE CONEXIÓN: {e}")
         return None
 
-# Ejecutamos la conexión
+# Intentamos conectar
 conn = conectar_google_sheets()
+CONEXION_DISPONIBLE = True if conn else False
 
-# Indicador visual en la barra lateral
-if conn:
-    st.sidebar.success("🟢 Sistema Online")
-else:
-    st.sidebar.error("🔴 Offline (Ver error arriba)")
+# --- 3. GESTIÓN DE ESTADO ---
+if 'autenticado' not in st.session_state: st.session_state.autenticado = False
+if 'codigo_lang' not in st.session_state: st.session_state.codigo_lang = 'es' 
 
-# --- 3. GESTIÓN DE IDIOMA ---
-if 'codigo_lang' not in st.session_state:
-    st.session_state.codigo_lang = 'es'
+# --- 4. CALLBACK IDIOMA (Esto es lo que te había quitado, aquí está de vuelta) ---
+def actualizar_idioma_callback():
+    seleccion = st.session_state.selector_idioma_key
+    # Extrae el código entre paréntesis, ej: "Castellano (es)" -> "es"
+    nuevo_codigo = seleccion.split('(')[-1].split(')')[0]
+    st.session_state.codigo_lang = nuevo_codigo
 
-# Cargamos textos según idioma
-t = idiomas.traducir_interfaz(st.session_state.codigo_lang)
+# --- 5. BARRA LATERAL (Con selector de idiomas) ---
+with st.sidebar:
+    opciones_idioma = [
+        "Castellano (es)", "English (en)", "Deutsch (de)", 
+        "Français (fr)", "Italiano (it)", "Português (pt)",
+        "Hebrew (he)", "Chinese (zh)"
+    ]
+    
+    # Lógica para mantener la selección actual
+    indice_actual = 0
+    for i, op in enumerate(opciones_idioma):
+        if f"({st.session_state.codigo_lang})" in op:
+            indice_actual = i
+            break
+            
+    st.selectbox(
+        "Idioma", opciones_idioma, index=indice_actual,
+        key="selector_idioma_key", on_change=actualizar_idioma_callback 
+    )
+    st.markdown("---")
+    st.caption(f"Swarco Traffic Spain \nSAT Portal TicketV1")
 
-# --- 4. CARGAR ESTILOS ---
-estilos.cargar_estilos()
+    # Indicador de estado (Semáforo)
+    if CONEXION_DISPONIBLE:
+        st.success("🟢 Sistema Online")
+    else:
+        st.error("🔴 Error Conexión")
 
-# --- 5. CONTROL DE FLUJO (Login vs App) ---
-# Inicializamos estado de autenticación
-if 'autenticado' not in st.session_state:
-    st.session_state.autenticado = False
+# --- 6. NAVEGACIÓN ---
+t = traducir_interfaz(st.session_state.codigo_lang)
+estilos.cargar_estilos() 
 
 if not st.session_state.autenticado:
-    # --- PANTALLA DE LOGIN ---
-    # Pasamos la conexión 'conn' al módulo de usuarios
-    usuarios.gestionar_acceso(conn, t)
+    if st.session_state.get('mostrar_registro', False):
+        usuarios.interfaz_registro_legal(conn, t) 
+    else:
+        usuarios.gestionar_acceso(conn, t)
 else:
-    # --- PANTALLA PRINCIPAL (Tickets) ---
     tickets.interfaz_tickets(conn, t)
 
