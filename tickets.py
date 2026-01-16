@@ -1,69 +1,59 @@
 # ==========================================
-# ARCHIVO: usuarios.py
+# ARCHIVO: tickets.py
 # PROYECTO: TicketV0
-# VERSIÓN: v1.0 (ORIGINAL DE HOY)
+# VERSIÓN: v1.0 (Original Hoy 16-Ene)
 # FECHA: 16-Ene-2026
+# DESCRIPCIÓN: Interfaz para la creación y envío de tickets técnicos.
 # ==========================================
+
 import streamlit as st
 import pandas as pd
-import hashlib
 from datetime import datetime
-import estilos
 
-def encriptar_password(password):
-    return hashlib.sha256(str.encode(password)).hexdigest()
+def interfaz_tickets(conn, t):
+    """Muestra el formulario para reportar un nuevo ticket."""
+    st.markdown(f"### 📝 {t.get('ticket_main_title', 'Gestión de Tickets')}")
+    st.info(f"Sesión iniciada como: {st.session_state.user_email}")
 
-def gestionar_acceso(conn, t):
-    estilos.mostrar_logo()
-    st.subheader(t.get('login_title', 'Acceso SAT'))
-    
-    with st.form("login_form"):
-        email = st.text_input(t.get('email_label', 'Correo')).lower().strip()
-        password = st.text_input(t.get('pass_label', 'Contraseña'), type='password')
-        submit = st.form_submit_button(t.get('btn_login', 'Entrar'))
+    with st.form("ticket_form"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            pais = st.selectbox(t.get('label_country', 'País'), ["España", "Portugal", "Otros"])
+            equipo = st.selectbox(t.get('label_device', 'Equipo'), ["Controlador ITC", "Óptica LED", "Pulsador", "Otros"])
+            serial = st.text_input(t.get('label_serial', 'Número de Serial'))
+
+        with col2:
+            fecha_averia = st.date_input(t.get('label_date', 'Fecha de la Avería'))
+            prioridad = st.select_slider(t.get('label_priority', 'Prioridad'), options=["Baja", "Media", "Alta"])
+            
+        descripcion = st.text_area(t.get('label_desc', 'Descripción del Problema'))
+        
+        submit = st.form_submit_button(t.get('btn_send_ticket', 'ENVIAR TICKET'))
 
         if submit:
+            if not descripcion or not serial:
+                st.warning("⚠️ Por favor, rellena los campos obligatorios.")
+                return
+
             try:
-                ws = conn.worksheet("Usuarios")
-                df = pd.DataFrame(ws.get_all_records())
-                if not df.empty and email in df['email'].values:
-                    stored_pass = df.loc[df['email'] == email, 'password'].values[0]
-                    if encriptar_password(password) == stored_pass:
-                        st.session_state.autenticado = True
-                        st.session_state.user_email = email
-                        st.rerun()
-                    else: st.error(t.get('err_invalid_pass', 'Contraseña incorrecta'))
-                else: st.error(t.get('err_user_not_found', 'Usuario no registrado'))
+                ws = conn.worksheet("Tickets")
+                nueva_fila = [
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    st.session_state.user_email,
+                    pais,
+                    equipo,
+                    serial,
+                    str(fecha_averia),
+                    prioridad,
+                    descripcion,
+                    "Abierto"
+                ]
+                ws.append_row(nueva_fila)
+                st.success("✅ Ticket enviado correctamente al departamento SAT.")
             except Exception as e:
-                st.error(f"Error de conexión: {e}")
+                st.error(f"Error al guardar ticket: {e}")
 
-    if st.button(t.get('btn_go_register', 'Registrarse')):
-        st.session_state.mostrar_registro = True
-        st.rerun()
-
-def interfaz_registro_legal(conn, t):
-    st.subheader(t.get('reg_title', 'Registro'))
-    with st.form("reg_form"):
-        nombre = st.text_input(t.get('name_label', 'Nombre'))
-        email = st.text_input(t.get('email_label', 'Email')).lower().strip()
-        telefono = st.text_input(t.get('phone_label', 'Teléfono'))
-        pass1 = st.text_input(t.get('pass_label', 'Contraseña'), type='password')
-        pass2 = st.text_input(t.get('confirm_pass', 'Repetir Contraseña'), type='password')
-        submit = st.form_submit_button(t.get('btn_register', 'Registrar'))
-
-        if submit:
-            if pass1 == pass2:
-                try:
-                    ws = conn.worksheet("Usuarios")
-                    ws.append_row([nombre, email, encriptar_password(pass1), telefono, datetime.now().strftime("%Y-%m-%d")])
-                    st.success(t.get('success_reg', 'Registrado correctamente'))
-                    st.session_state.mostrar_registro = False
-                    st.rerun()
-                except:
-                    st.error("Error al guardar")
-            else:
-                st.error(t.get('err_pass_match', 'Las contraseñas no coinciden'))
-
-    if st.button(t.get('btn_back_login', 'Volver')):
-        st.session_state.mostrar_registro = False
+    if st.sidebar.button(t.get('btn_logout', 'Cerrar Sesión')):
+        st.session_state.autenticado = False
         st.rerun()
