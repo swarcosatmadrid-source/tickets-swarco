@@ -1,33 +1,54 @@
+# =============================================================================
 # ARCHIVO: idiomas.py
-# VERSIÓN: v1.3 (Con Textos de Ayuda y Legal)
-# FECHA: 15-Ene-2026
+# PROYECTO: Sistema de Gestión SAT - SWARCO Traffic Spain
+# VERSIÓN: 1.6.0 (Traductor Automático Infinito)
+# FECHA ÚLTIMA MODIF: 16-Ene-2026
+# DESCRIPCIÓN: Restauración del motor deep-translator para soporte universal 
+#              de idiomas sin depender de tablas manuales.
+# =============================================================================
 
 from deep_translator import GoogleTranslator
 import streamlit as st
+import pandas as pd
+
+def obtener_lista_idiomas():
+    """
+    Genera la lista de idiomas disponibles en Google Translator 
+    para que el sidebar del main.py pueda mostrarlos todos.
+    """
+    try:
+        # Obtenemos los idiomas soportados por la librería
+        langs_dict = GoogleTranslator().get_supported_languages(as_dict=True)
+        # Convertimos a DataFrame para que el main.py lo maneje fácil
+        df = pd.DataFrame(list(langs_dict.items()), columns=['nombre_idioma', 'codigo'])
+        # Ponemos los principales arriba para comodidad del usuario
+        prioritarios = ['spanish', 'english', 'german', 'french']
+        df['prioridad'] = df['nombre_idioma'].apply(lambda x: 0 if x in prioritarios else 1)
+        return df.sort_values(['prioridad', 'nombre_idioma']).drop(columns=['prioridad'])
+    except:
+        # Fallback si no hay internet
+        return pd.DataFrame([
+            {"nombre_idioma": "spanish", "codigo": "es"},
+            {"nombre_idioma": "english", "codigo": "en"}
+        ])
 
 def traducir_interfaz(codigo_iso):
+    """Lógica original del usuario con diccionario maestro y traducción automática."""
     traducciones_maestras = {
         "es": {
-            # --- TÍTULOS DE PASOS CORREGIDOS ---
             "reg_tit": "📝 Registro de Nuevo Usuario / Equipo",
             "p1_tit": "1. Identificación Personal",
             "p2_tit": "2. Ubicación y Contacto",
             "p3_tit": "3. Seguridad de la Cuenta",
             "p4_tit": "4. Validación Legal",
-            
-            # --- MANUALITO (AYUDAS) ---
             "guia_titulo": "📘 Guía de Llenado (Clic para desplegar)",
             "guia_desc": "• Todos los campos marcados con (*) son obligatorios.\n• El teléfono añade el prefijo del país automáticamente.\n• La contraseña debe tener mayúsculas y números.",
             "help_empresa": "Nombre fiscal de su compañía u organismo.",
             "help_user": "Este será su ID único para iniciar sesión.",
             "help_pass": "Mínimo 8 caracteres, 1 mayúscula, 1 número.",
-            
-            # --- LEGAL ---
             "acepto": "He leído y acepto la ",
             "link_texto": "Política de Privacidad y Protección de Datos",
             "msg_legal": "Consulte nuestro documento PDF para saber cómo tratamos sus datos.",
-
-            # --- RESTO DEL SISTEMA (Lo de siempre) ---
             "login_tit": "🔐 Acceso Usuarios Registrados",
             "user_id": "Usuario / ID",
             "pass": "Contraseña",
@@ -57,7 +78,8 @@ def traducir_interfaz(codigo_iso):
             "pais": "País",
             "pass_rep": "Repetir Contraseña",
             "btn_volver": "VOLVER",
-            "btn_generar": "REGISTRAR"
+            "btn_repuestos": "Solicitud de Repuestos",
+            "btn_equipos_nuevos": "Equipos Nuevos"
         },
         "en": {
             "reg_tit": "📝 New User Registration",
@@ -65,17 +87,14 @@ def traducir_interfaz(codigo_iso):
             "p2_tit": "2. Location & Contact",
             "p3_tit": "3. Account Security",
             "p4_tit": "4. Legal Validation",
-            
             "guia_titulo": "📘 User Guide (Click to expand)",
             "guia_desc": "• All fields with (*) are mandatory.\n• Phone prefix is added automatically.\n• Password must include uppercase and numbers.",
             "help_empresa": "Fiscal name of your company.",
             "help_user": "This will be your unique Login ID.",
             "help_pass": "Min 8 chars, 1 uppercase, 1 number.",
-
             "acepto": "I have read and accept the ",
             "link_texto": "Privacy Policy & Data Protection",
             "msg_legal": "Check our PDF document regarding data treatment.",
-
             "login_tit": "🔐 Registered User Access",
             "user_id": "Username / ID",
             "pass": "Password",
@@ -105,18 +124,17 @@ def traducir_interfaz(codigo_iso):
             "pais": "Country",
             "pass_rep": "Repeat Password",
             "btn_volver": "BACK",
-            "btn_generar": "REGISTER"
+            "btn_repuestos": "Spare Parts Request",
+            "btn_equipos_nuevos": "New Equipment"
         }
     }
 
     if codigo_iso in traducciones_maestras:
         return traducciones_maestras[codigo_iso]
 
-    # Traducción automática para otros idiomas
     try:
         mapa_correccion = {"he": "iw", "zh": "zh-CN", "jv": "jw"}
         codigo_google = mapa_correccion.get(codigo_iso, codigo_iso)
-        
         base_es = traducciones_maestras["es"]
         traductor = GoogleTranslator(source='es', target=codigo_google)
         
