@@ -1,9 +1,9 @@
 # ==========================================
 # ARCHIVO: usuarios.py
 # PROYECTO: TicketV0
-# VERSIÓN: v1.0 (Original Guardada Hoy)
+# VERSIÓN: v1.0 (Lógica y Estilo Sincronizado)
 # FECHA: 16-Ene-2026
-# DESCRIPCIÓN: Módulo de autenticación y registro con encriptación.
+# DESCRIPCIÓN: Módulo de acceso que recupera el diseño de hoy.
 # ==========================================
 import streamlit as st
 import pandas as pd
@@ -36,7 +36,7 @@ def gestionar_acceso(conn, t):
                     else: st.error(t.get('err_invalid_pass', 'Contraseña incorrecta'))
                 else: st.error(t.get('err_user_not_found', 'Usuario no registrado'))
             except Exception as e:
-                st.error(f"Error de conexión: {e}")
+                st.error(f"Error: {e}")
 
     if st.button(t.get('btn_go_register', 'Registrarse')):
         st.session_state.mostrar_registro = True
@@ -60,8 +60,8 @@ def interfaz_registro_legal(conn, t):
                     st.success(t.get('success_reg', 'Registrado correctamente'))
                     st.session_state.mostrar_registro = False
                     st.rerun()
-                except Exception as e:
-                    st.error(f"Error al guardar: {e}")
+                except:
+                    st.error("Error al guardar")
             else:
                 st.error(t.get('err_pass_match', 'Las contraseñas no coinciden'))
 
