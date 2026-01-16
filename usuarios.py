@@ -1,9 +1,10 @@
 # ==========================================
 # ARCHIVO: usuarios.py
-# PROYECTO: TicketV0
-# VERSIÓN: v1.0 (Original Hoy 16-Ene)
+# PROYECTO: TicketV0 -> MEJORA: SEGURIDAD
+# VERSIÓN: v1.1 (Validaciones Activas)
 # FECHA: 16-Ene-2026
-# DESCRIPCIÓN: Gestión de login y registro de usuarios con Google Sheets.
+# COMPARACIÓN: Basado en v1.0 (Original Hoy). 
+#              Mantiene 100% el diseño original.
 # ==========================================
 
 import streamlit as st
@@ -13,11 +14,10 @@ from datetime import datetime
 import estilos
 
 def encriptar_password(password):
-    """Encripta la contraseña usando SHA-256."""
     return hashlib.sha256(str.encode(password)).hexdigest()
 
 def gestionar_acceso(conn, t):
-    """Interfaz de login con logo y validación contra GSheets."""
+    """Interfaz de login (IDÉNTICA A V1.0)"""
     estilos.mostrar_logo()
     st.markdown("---")
     
@@ -30,7 +30,7 @@ def gestionar_acceso(conn, t):
 
             if submit:
                 if not conn:
-                    st.error("Error: Sin conexión a base de datos.")
+                    st.error("Error: Sin conexión.")
                     return
                 try:
                     ws = conn.worksheet("Usuarios")
@@ -41,10 +41,8 @@ def gestionar_acceso(conn, t):
                             st.session_state.autenticado = True
                             st.session_state.user_email = email
                             st.rerun()
-                        else:
-                            st.error(t.get('err_invalid_pass', 'Contraseña incorrecta'))
-                    else:
-                        st.error(t.get('err_user_not_found', 'Usuario no registrado'))
+                        else: st.error(t.get('err_invalid_pass', 'Contraseña incorrecta'))
+                    else: st.error(t.get('err_user_not_found', 'Usuario no registrado'))
                 except Exception as e:
                     st.error(f"Error técnico: {e}")
 
@@ -54,7 +52,7 @@ def gestionar_acceso(conn, t):
         st.rerun()
 
 def interfaz_registro_legal(conn, t):
-    """Formulario de registro para nuevos usuarios."""
+    """Registro con validación de clave y duplicados."""
     st.subheader(t.get('reg_title', 'Registro de Usuario'))
     
     with st.form("reg_form"):
@@ -67,23 +65,31 @@ def interfaz_registro_legal(conn, t):
         submit = st.form_submit_button(t.get('btn_register', 'REGISTRAR'))
 
         if submit:
-            if pass1 == pass2:
-                try:
-                    ws = conn.worksheet("Usuarios")
-                    ws.append_row([
-                        nombre, 
-                        email, 
-                        encriptar_password(pass1), 
-                        telefono, 
-                        datetime.now().strftime("%Y-%m-%d")
-                    ])
-                    st.success(t.get('success_reg', '¡Registrado con éxito!'))
-                    st.session_state.mostrar_registro = False
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error al guardar: {e}")
-            else:
+            # --- NUEVAS VALIDACIONES (PACTO DE COMPARACIÓN) ---
+            if pass1 != pass2:
                 st.error(t.get('err_pass_match', 'Las contraseñas no coinciden'))
+                return
+
+            if len(pass1) < 6:
+                st.error("❌ La contraseña debe tener al menos 6 caracteres.")
+                return
+
+            try:
+                ws = conn.worksheet("Usuarios")
+                df = pd.DataFrame(ws.get_all_records())
+                
+                # Validación de Usuario Duplicado
+                if not df.empty and email in df['email'].values:
+                    st.error("❌ Este correo electrónico ya está registrado.")
+                    return
+
+                # Si pasa las pruebas, se guarda
+                ws.append_row([nombre, email, encriptar_password(pass1), telefono, datetime.now().strftime("%Y-%m-%d")])
+                st.success(t.get('success_reg', '¡Registrado con éxito!'))
+                st.session_state.mostrar_registro = False
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error al guardar: {e}")
 
     if st.button(t.get('btn_back_login', 'Volver al Login')):
         st.session_state.mostrar_registro = False
