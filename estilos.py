@@ -1,6 +1,15 @@
+# =============================================================================
+# ARCHIVO: estilos.py
+# PROYECTO: Sistema de Gestión SAT - SWARCO Traffic Spain
+# VERSIÓN: 3.2.0 (Estilo Corporativo #FF5D00 + Ruta GitHub)
+# FECHA: 16-Ene-2026
+# DESCRIPCIÓN: Definición de CSS y carga segura de recursos visuales.
+# =============================================================================
+
 import streamlit as st
 
 def cargar_estilos():
+    """Aplica el CSS corporativo."""
     st.markdown("""
         <style>
         .swarco-title {
@@ -13,24 +22,17 @@ def cargar_estilos():
         .stButton>button {
             background-color: #FF5D00 !important;
             color: white !important;
+            font-weight: bold;
             border-radius: 5px;
             border: none;
-            font-weight: bold;
             height: 45px;
-        }
-        div[data-testid="stForm"] .stTextInput input[aria-invalid="true"] {
-            border: 2px solid #FF0000 !important;
-            background-color: #FFF5F5 !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
 def mostrar_logo():
+    """Muestra el logo desde la carpeta logo/."""
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        try:
-            # RUTA EXACTA GITHUB
-            st.image("logo/logo.png", use_container_width=True)
-        except:
-            st.markdown("<h2 style='text-align:center; color:#FF5D00'>SWARCO</h2>", unsafe_allow_html=True)
-
+        # Ruta directa a tu carpeta de GitHub
+        st.image("logo/logo.png", use_container_width=True)
