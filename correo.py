@@ -1,3 +1,7 @@
+# =============================================================================
+# ARCHIVO: correo.py
+# VERSIÓN: 5.1.0 (Texto Personalizado Madrid)
+# =============================================================================
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -5,6 +9,7 @@ import streamlit as st
 
 def enviar_correo_bienvenida(destinatario, nombre, usuario, password_temp):
     try:
+        # Configuración SMTP (Toma los datos de secrets)
         smtp_server = "smtp.gmail.com"
         smtp_port = 587
         remitente = st.secrets["smtp"]["email"]
@@ -13,19 +18,25 @@ def enviar_correo_bienvenida(destinatario, nombre, usuario, password_temp):
         msg = MIMEMultipart()
         msg['From'] = remitente
         msg['To'] = destinatario
-        msg['Subject'] = "Bienvenido al Portal SAT - SWARCO"
+        msg['Subject'] = "Bienvenida - Gestión de Tickets SWARCO Traffic Madrid"
 
+        # CUERPO DEL CORREO EXACTO QUE PEDISTE
         cuerpo = f"""
-        Hola {nombre},
+        Estimado/a {nombre},
+
+        Le damos la bienvenida a la página de gestión de tickets de Swarco Traffic Madrid.
         
-        Bienvenido al sistema SAT de Swarco Traffic Spain.
-        Su usuario es: {usuario}
-        
-        Saludos,
-        Equipo SAT
+        Sus credenciales de acceso son:
+        Usuario: {usuario}
+        Contraseña: {password_temp} (Por favor, cámbiela al acceder si es provisional)
+
+        Atentamente,
+        El Equipo de Soporte Técnico
+        SWARCO Traffic Spain
         """
         msg.attach(MIMEText(cuerpo, 'plain'))
 
+        # Envío
         server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
         server.login(remitente, password)
@@ -35,4 +46,3 @@ def enviar_correo_bienvenida(destinatario, nombre, usuario, password_temp):
     except Exception as e:
         print(f"Error envio correo: {e}")
         return False
-
