@@ -1,12 +1,6 @@
-# =============================================================================
-# ARCHIVO: estilos.py
-# VERSIÓN: 3.0.0 (ARQUITECTURA RÍGIDA)
-# =============================================================================
 import streamlit as st
-import os
 
 def cargar_estilos():
-    """Define la identidad visual crítica."""
     st.markdown("""
         <style>
         .swarco-title {
@@ -19,24 +13,24 @@ def cargar_estilos():
         .stButton>button {
             background-color: #FF5D00 !important;
             color: white !important;
-            border: none;
             border-radius: 5px;
-            height: 45px;
+            border: none;
             font-weight: bold;
+            height: 45px;
         }
-        /* Corrección para que los inputs se vean bien */
-        .stTextInput>div>div>input {
-            border: 1px solid #ddd;
+        div[data-testid="stForm"] .stTextInput input[aria-invalid="true"] {
+            border: 2px solid #FF0000 !important;
+            background-color: #FFF5F5 !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
 def mostrar_logo():
-    """Muestra el logo sin hacer preguntas complejas al sistema."""
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        # Intenta cargar la ruta exacta. Si falla, pone texto para no romper la app.
         try:
+            # RUTA EXACTA GITHUB
             st.image("logo/logo.png", use_container_width=True)
         except:
             st.markdown("<h2 style='text-align:center; color:#FF5D00'>SWARCO</h2>", unsafe_allow_html=True)
+
