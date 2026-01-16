@@ -1,6 +1,6 @@
 # =============================================================================
 # ARCHIVO: usuarios.py
-# VERSIÓN: 8.7.0 (Debug Mode: No cierra ventana + Bloqueo Duplicados Real)
+# VERSIÓN: 8.8.0 (Optimizado para Autofill + Aviso final claro)
 # =============================================================================
 import streamlit as st
 import pandas as pd
@@ -28,22 +28,14 @@ def validar_fuerza_clave(password):
     else: return 100, "Robusta 🟢", "#21c354"
 
 def usuario_existe(conn, email_input):
-    """Revisa si el email existe en la hoja de cálculo"""
     if not email_input: return False
     try:
-        # Descargamos datos frescos
         records = conn.worksheet("Usuarios").get_all_records()
         df = pd.DataFrame(records)
-        
-        # Si el dataframe está vacío o no tiene columnas, no existe nadie
         if df.empty: return False
-        
-        # Buscamos el email
         if email_input.lower().strip() in df['email'].astype(str).str.lower().str.strip().values:
             return True
-    except Exception as e:
-        print(f"Error leyendo usuarios: {e}")
-        return False
+    except: return False
     return False
 
 # --- Interfaz de Registro ---
@@ -51,14 +43,14 @@ def interfaz_registro_legal(conn, t):
     estilos.mostrar_logo()
     st.markdown(f'<p class="swarco-title">{t.get("reg_tit", "ALTA DE USUARIO")}</p>', unsafe_allow_html=True)
     
-    # Aviso de MODO DEBUG
-    st.info("🛠️ MODO DEBUG ACTIVADO: La ventana NO se cerrará automáticamente para que puedas leer los errores.", icon="🛠️")
-
+    # Inicializar lista de errores
     if 'campos_error' not in st.session_state: st.session_state.campos_error = []
 
-    def limpiar_error(campo):
-        if campo in st.session_state.campos_error:
-            st.session_state.campos_error.remove(campo)
+    # HELPER: Limpieza silenciosa (Sin rerun)
+    # Esto permite que el autofill funcione sin que la página parpadee
+    def limpiar_si_hay_dato(dato, key_error):
+        if dato and key_error in st.session_state.campos_error:
+            st.session_state.campos_error.remove(key_error)
 
     # 1. ZONA IDENTIFICACIÓN
     with st.container(border=True):
@@ -66,42 +58,42 @@ def interfaz_registro_legal(conn, t):
         c1, c2 = st.columns(2)
         
         n = c1.text_input("Nombre *")
-        if n: limpiar_error("n")
-        if "n" in st.session_state.campos_error: c1.error("Falta Nombre")
+        limpiar_si_hay_dato(n, "n") # Si el autofill pone algo, quitamos el error
+        if "n" in st.session_state.campos_error: c1.error("Campo obligatorio")
         
         a = c2.text_input("Apellido *")
-        if a: limpiar_error("a")
-        if "a" in st.session_state.campos_error: c2.error("Falta Apellido")
+        limpiar_si_hay_dato(a, "a")
+        if "a" in st.session_state.campos_error: c2.error("Campo obligatorio")
 
-    # 2. ZONA UBICACIÓN Y DATOS
+    # 2. ZONA UBICACIÓN
     with st.container(border=True):
         st.markdown(f"#### 🌍 {t.get('p2_tit', 'Datos Profesionales')}")
         
         c_cargo, c_empresa = st.columns(2)
+        
         cargo = c_cargo.text_input("Cargo / Puesto *")
-        if cargo: limpiar_error("cargo")
+        limpiar_si_hay_dato(cargo, "cargo")
         if "cargo" in st.session_state.campos_error: c_cargo.error("Falta Cargo")
         
         e = c_empresa.text_input("Empresa / Entidad *")
-        if e: limpiar_error("e")
+        limpiar_si_hay_dato(e, "e")
         if "e" in st.session_state.campos_error: c_empresa.error("Falta Empresa")
         
         # Email
         m = st.text_input("Email Corporativo *").lower().strip()
         
-        # Lógica de Duplicados Visual
-        ya_existe = False
+        # Validación Email
         if m:
             if "@" not in m:
-                pass
+                pass # Formato visual se maneja con warning
             elif usuario_existe(conn, m):
-                st.error("⛔ USUARIO DUPLICADO: Este correo ya está en la base de datos.")
-                ya_existe = True
+                st.error("⛔ DUPLICADO: Correo ya registrado.")
+                # No limpiamos error si es duplicado
             else:
+                limpiar_si_hay_dato(m, "m")
                 st.success("✅ Disponible")
-                limpiar_error("m")
 
-        if "m" in st.session_state.campos_error: st.error("Email requerido")
+        if "m" in st.session_state.campos_error: st.error("Email requerido o inválido")
 
         # Teléfono
         st.caption("Teléfono Móvil")
@@ -118,11 +110,11 @@ def interfaz_registro_legal(conn, t):
         
         with col_tel:
             tl_num = st.text_input("Nº Móvil *", placeholder="Ej: 600123456")
-            if tl_num:
-                if not tl_num.isdigit():
-                    st.error("⚠️ Solo números", icon="🚫")
-                else:
-                    limpiar_error("tl")
+            if tl_num and tl_num.isdigit():
+                limpiar_si_hay_dato(tl_num, "tl")
+            
+            if tl_num and not tl_num.isdigit():
+                st.error("⚠️ Solo números")
             if "tl" in st.session_state.campos_error: st.error("Mínimo 6 dígitos")
 
     # 3. ZONA SEGURIDAD
@@ -132,7 +124,7 @@ def interfaz_registro_legal(conn, t):
         
         p1 = st.text_input("Contraseña *", type='password')
         
-        # BARRA DE FUERZA
+        # Visualización de fuerza
         if p1:
             prog, etiq, col = validar_fuerza_clave(p1)
             st.markdown(f"""
@@ -142,15 +134,15 @@ def interfaz_registro_legal(conn, t):
                 <small style="color:{col}; font-weight:bold;">Nivel: {etiq}</small>
             """, unsafe_allow_html=True)
 
-            if prog < 60:
-                st.warning("⚠️ Contraseña insegura. Debe llegar al menos a Nivel Medio 🟡")
+            if prog >= 60: # Nivel Medio o superior
+                limpiar_si_hay_dato(p1, "p1")
             else:
-                limpiar_error("p1")
+                st.warning("⚠️ Contraseña insegura. Debe ser al menos Nivel Medio 🟡")
 
         p2 = st.text_input("Repetir Contraseña *", type='password')
-        if p2 and p1 == p2: limpiar_error("no_match")
+        if p2 and p1 == p2: limpiar_si_hay_dato(p2, "no_match")
         
-        if "p1" in st.session_state.campos_error: st.error("Contraseña muy débil")
+        if "p1" in st.session_state.campos_error: st.error("Contraseña débil o vacía")
         if "no_match" in st.session_state.campos_error: st.error("Las contraseñas no coinciden")
 
     # 4. ZONA LEGAL
@@ -159,7 +151,8 @@ def interfaz_registro_legal(conn, t):
         link_gdpr = "https://www.swarco.com/privacy-policy"
         st.markdown(f"Debe leer y aceptar la [Política de Privacidad]({link_gdpr}).", unsafe_allow_html=True)
         chk = st.checkbox("He leído, comprendo y acepto los términos.")
-        if chk: limpiar_error("chk")
+        
+        if chk: limpiar_si_hay_dato(True, "chk")
         if "chk" in st.session_state.campos_error: st.error("Debe aceptar para continuar")
 
     st.divider()
@@ -168,7 +161,7 @@ def interfaz_registro_legal(conn, t):
     if st.button("REGISTRAR USUARIO", type="primary", use_container_width=True):
         errores_detectados = []
         
-        # 1. Validaciones de Vacío (Para Autofill confiamos en st.text_input directo)
+        # Validaciones Finales
         if not n: errores_detectados.append("n")
         if not a: errores_detectados.append("a")
         if not cargo: errores_detectados.append("cargo")
@@ -176,11 +169,9 @@ def interfaz_registro_legal(conn, t):
         if not m or "@" not in m: errores_detectados.append("m")
         if not chk: errores_detectados.append("chk")
         
-        # 2. Validación Teléfono
         if not tl_num or not tl_num.isdigit() or len(tl_num) < 6:
             errores_detectados.append("tl")
 
-        # 3. Validaciones Password
         if not p1 or not p2: 
             errores_detectados.append("p1")
         elif p1 != p2:
@@ -189,43 +180,39 @@ def interfaz_registro_legal(conn, t):
             fuerza, _, _ = validar_fuerza_clave(p1)
             if fuerza < 60: errores_detectados.append("p1")
 
-        # 4. VALIDACIÓN CRÍTICA DE DUPLICADOS (BLOQUEO FINAL)
-        # Aunque el visual diga error, esto evita que se guarde
+        # Bloqueo Duplicados
         if m and usuario_existe(conn, m):
-            st.error(f"🛑 ERROR CRÍTICO: El usuario {m} YA EXISTE. No se puede crear de nuevo.")
-            st.stop() # Frena el código aquí mismo
+            st.error(f"🛑 EL USUARIO {m} YA EXISTE. Operación cancelada.")
+            # Frenamos aquí
+            st.stop()
 
-        # DECISIÓN FINAL
+        # DECISIÓN
         if errores_detectados:
             st.session_state.campos_error = errores_detectados
-            # cartel gigante de aviso
-            st.error("⚠️ NO SE PUDO CREAR: Revise los campos marcados en ROJO arriba.", icon="🚨")
-            st.rerun()
+            # AVISO QUE PEDISTE ABAJO DEL BOTÓN
+            st.error("⚠️ FALTAN DATOS: Por favor, rellena los espacios marcados en rojo.", icon="🚨")
+            st.rerun() # Recargamos para que salgan los rojos
         else:
-            # INTENTO DE GUARDADO
             try:
-                # Guardar en Sheets
+                # Guardar
                 conn.worksheet("Usuarios").append_row([
                     n, a, cargo, e, pais_sel, pref_auto, tl_num, m, encriptar_password(p1)
                 ])
-                
-                # Enviar Correo
-                st.info("Intentando enviar correo...") # Debug info
+                # Correo
+                st.info("Enviando correo...")
                 envio_ok = correo.enviar_correo_bienvenida(m, n, m, p1)
                 
                 if envio_ok:
-                    st.success("✅ USUARIO REGISTRADO Y CORREO ENVIADO CORRECTAMENTE")
-                    st.success("Puede cerrar esta ventana manualmente o crear otro usuario.")
+                    st.success("✅ USUARIO CREADO CORRECTAMENTE")
                 else:
-                    st.warning("⚠️ Usuario guardado en Excel, pero el CORREO FALLÓ. Revise el error arriba (si lo imprimió el archivo de correo).")
+                    st.warning("⚠️ Usuario creado, pero hubo error en el envío del correo.")
 
-                # NO cerramos la página para que leas
                 st.session_state.campos_error = []
                 
             except Exception as ex:
-                st.error(f"❌ Error Técnico Grave: {ex}")
+                st.error(f"Error Técnico: {ex}")
 
-    if st.button("Cancelar y Limpiar"):
+    if st.button("Cancelar"):
         st.session_state.mostrar_registro = False
         st.session_state.campos_error = []
         st.rerun()
