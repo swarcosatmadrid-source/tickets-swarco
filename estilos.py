@@ -37,7 +37,7 @@ def cargar_estilos():
 def mostrar_logo():
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        ruta = "logo/logo.png"
+        ruta = "logo.png"
         
         # 1. Verificamos existencia física
         if os.path.exists(ruta):
@@ -56,4 +56,5 @@ def mostrar_logo():
             st.error(f"El sistema no ve el archivo en: {os.path.abspath(ruta)}")
             if os.path.exists("logo"):
                 st.info(f"Contenido carpeta 'logo': {os.listdir('logo')}")
+
 
