@@ -1,10 +1,10 @@
 # ==========================================
 # ARCHIVO: main.py
 # PROYECTO: TicketV1
-# VERSIÓN: v1.2-FIXED (Estructura Original + Debug)
+# VERSIÓN: v1.3 (Debug Avanzado + Fix) 🛠️
 # FECHA: 16-Ene-2026
-# DESCRIPCIÓN: Mantiene TODA la lógica original (idiomas, menús).
-#              Solo mejora conectar_google_sheets para ver errores reales.
+# DESCRIPCIÓN: Mantiene TODA la lógica original.
+#              Mejora el reporte de error para que no salga en blanco.
 # ==========================================
 
 import streamlit as st
@@ -13,15 +13,19 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # --- IMPORTACIÓN DE MÓDULOS ---
-import estilos
-import usuarios
-import tickets
-from idiomas import traducir_interfaz
+try:
+    import estilos
+    import usuarios
+    import tickets
+    from idiomas import traducir_interfaz
+except ImportError as e:
+    st.error(f"⚠️ Faltan archivos: {e}")
+    st.stop()
 
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Swarco Spain SAT", page_icon="🚦", layout="centered")
 
-# --- 2. CONEXIÓN NATIVA A GOOGLE (CON DIAGNÓSTICO DE ERRORES) ---
+# --- 2. CONEXIÓN NATIVA A GOOGLE (CON DIAGNÓSTICO PROFUNDO) ---
 def conectar_google_sheets():
     """Conecta a Google Sheets y avisa si falla."""
     try:
@@ -31,13 +35,18 @@ def conectar_google_sheets():
             "https://www.googleapis.com/auth/drive"
         ]
         
-        # Verificamos si existen los secrets antes de leer
+        # Verificamos si existen los secrets
         if "connections" not in st.secrets:
-            st.error("❌ ERROR: No se encuentran los 'Secrets' en la configuración.")
+            st.error("❌ ERROR CRÍTICO: 'connections' no está en st.secrets.")
             return None
 
-        # Cargamos credenciales
-        creds_dict = dict(st.secrets["connections"]["gsheets"]["service_account"])
+        # Intento de lectura de credenciales con chivatos
+        try:
+            creds_dict = dict(st.secrets["connections"]["gsheets"]["service_account"])
+        except KeyError as k:
+            st.error(f"❌ ERROR EN SECRETS: Falta la clave {k}. Revisa el formato TOML.")
+            return None
+
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client = gspread.authorize(creds)
         
@@ -47,8 +56,8 @@ def conectar_google_sheets():
         return sheet
 
     except Exception as e:
-        # AQUÍ ESTÁ EL CAMBIO: Mostramos el error en pantalla
-        st.error(f"🔥 ERROR DE CONEXIÓN: {e}")
+        # AQUÍ ESTÁ EL CAMBIO: Imprimimos el TIPO de error también
+        st.error(f"🔥 ERROR TÉCNICO ({type(e).__name__}): {e}")
         return None
 
 # Intentamos conectar
@@ -59,13 +68,13 @@ CONEXION_DISPONIBLE = True if conn else False
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'codigo_lang' not in st.session_state: st.session_state.codigo_lang = 'es' 
 
-# --- 4. CALLBACK IDIOMA (ESTO SE QUEDA, NO SE TOCA) ---
+# --- 4. CALLBACK IDIOMA ---
 def actualizar_idioma_callback():
     seleccion = st.session_state.selector_idioma_key
     nuevo_codigo = seleccion.split('(')[-1].split(')')[0]
     st.session_state.codigo_lang = nuevo_codigo
 
-# --- 5. BARRA LATERAL (ESTO SE QUEDA, NO SE TOCA) ---
+# --- 5. BARRA LATERAL ---
 with st.sidebar:
     opciones_idioma = [
         "Castellano (es)", "English (en)", "Deutsch (de)", 
