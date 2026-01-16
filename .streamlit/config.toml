@@ -1,6 +1,8 @@
 # ARCHIVO: .streamlit/config.toml
+# PROYECTO: TicketV0
 # VERSIÓN: v1.0 (Tema Oficial Swarco)
-# DESCRIPCIÓN: Define los colores base del servidor para que los botones sean naranjas por defecto.
+# FECHA: 16-Ene-2026
+# DESCRIPCIÓN: Define los colores base (Naranja Swarco) para que Streamlit los use por defecto.
 
 [theme]
 primaryColor = "#F29400"
