@@ -1,6 +1,6 @@
 # =============================================================================
 # ARCHIVO: usuarios.py
-# VERSIÓN: 8.0.0 (Importando módulo externo 'paises.py')
+# VERSIÓN: 8.1.0 (Cargo movido a Contacto + Sin líneas divisoras)
 # =============================================================================
 import streamlit as st
 import pandas as pd
@@ -9,7 +9,7 @@ import re
 import time
 import estilos
 import correo
-import paises  # <--- AQUÍ LLAMAMOS A TU ARCHIVO EXISTENTE
+import paises
 
 # --- Lógica Auxiliar ---
 def limpiar_telefono_simple(texto):
@@ -26,7 +26,6 @@ def validar_fuerza_clave(password):
     if re.search(r"[a-z]", password): score += 1
     if re.search(r"[0-9]", password): score += 1
     if re.search(r"[@$!%*?&#]", password): score += 1
-    
     if score < 3: return 20, "Débil 🔴", "#ff4b4b"
     elif score < 5: return 60, "Media 🟡", "#ffa500"
     else: return 100, "Robusta 🟢", "#21c354"
@@ -44,47 +43,46 @@ def interfaz_registro_legal(conn, t):
     estilos.mostrar_logo()
     st.markdown(f'<p class="swarco-title">{t.get("reg_tit", "ALTA DE USUARIO")}</p>', unsafe_allow_html=True)
 
-    # 1. ZONA IDENTIFICACIÓN
+    # 1. ZONA IDENTIFICACIÓN (Solo Nombres)
     with st.container(border=True):
         st.markdown(f"#### 👤 {t.get('p1_tit', 'Identificación')}")
         c1, c2 = st.columns(2)
         n = c1.text_input("Nombre *")
         a = c2.text_input("Apellido *")
-        cargo = st.text_input("Cargo / Puesto *", placeholder="Ej: Jefe de Sala, Técnico")
+        # El cargo se movió abajo
 
-    # 2. ZONA UBICACIÓN (Usando paises.py)
+    # 2. ZONA UBICACIÓN Y DATOS PROFESIONALES (Aquí entra el Cargo)
     with st.container(border=True):
-        st.markdown(f"#### 🌍 {t.get('p2_tit', 'Ubicación')}")
-        e = st.text_input("Empresa / Entidad *")
+        st.markdown(f"#### 🌍 {t.get('p2_tit', 'Datos Profesionales y Contacto')}")
         
-        # Email con validación inmediata
+        # Cargo y Empresa en la misma fila para ahorrar espacio vertical
+        c_cargo, c_empresa = st.columns(2)
+        cargo = c_cargo.text_input("Cargo / Puesto *", placeholder="Ej: Jefe de Sala")
+        e = c_empresa.text_input("Empresa / Entidad *")
+        
+        # Email
         m = st.text_input("Email Corporativo *").lower().strip()
         email_valido = False
         if m:
             if "@" not in m:
                 st.warning("⚠️ Formato incorrecto")
             elif usuario_existe(conn, m):
-                st.error("⛔ USUARIO DUPLICADO: Correo ya registrado.")
+                st.error("⛔ DUPLICADO: Correo ya registrado.")
             else:
                 st.success("✅ Disponible")
                 email_valido = True
         
-        st.divider()
-        st.caption("Contacto Internacional")
+        st.caption("Teléfono Móvil Internacional")
         
-        # --- LLAMADA A TU ARCHIVO PAISES.PY ---
-        col_pais, col_pref, col_tel = st.columns([3, 1.5, 3])
+        # Selector de País y Teléfono (SIN st.divider)
+        col_pais, col_pref, col_tel = st.columns([3, 1.2, 3])
         
         with col_pais:
-            # Función 1 de tu archivo: Obtener nombres
             lista_paises = paises.obtener_lista_nombres()
-            
-            # Intentamos seleccionar España por defecto si existe en tu lista
             idx = lista_paises.index("España") if "España" in lista_paises else 0
             pais_sel = st.selectbox("País *", lista_paises, index=idx)
         
         with col_pref:
-            # Función 2 de tu archivo: Obtener prefijo del país seleccionado
             pref_auto = paises.obtener_prefijo(pais_sel)
             st.text_input("Prefijo", value=pref_auto, disabled=True)
         
@@ -95,7 +93,6 @@ def interfaz_registro_legal(conn, t):
     # 3. ZONA SEGURIDAD
     with st.container(border=True):
         st.markdown(f"#### 🔒 {t.get('p3_tit', 'Seguridad')}")
-        st.caption("Requisitos: 8 caracteres, Mayús, Minús, Núm y Símbolo.")
         
         p1 = st.text_input("Contraseña *", type='password')
         if p1:
@@ -130,9 +127,9 @@ def interfaz_registro_legal(conn, t):
         if not a: errores.append("Falta Apellido")
         if not cargo: errores.append("Falta Cargo")
         if not e: errores.append("Falta Empresa")
-        if not email_valido: errores.append("Email inválido o duplicado")
+        if not email_valido: errores.append("Email inválido")
         if not tl_num or len(tl_num) < 6: errores.append("Teléfono inválido")
-        if not clave_valida: errores.append("Contraseñas no válidas")
+        if not clave_valida: errores.append("Contraseñas inválidas")
         if not chk: errores.append("Debe aceptar política")
 
         if errores:
@@ -140,28 +137,15 @@ def interfaz_registro_legal(conn, t):
             for err in errores: st.error(f"- {err}")
         else:
             try:
-                # GUARDADO CON COLUMNAS SEPARADAS
-                # Orden: Nombre | Apellido | Cargo | Empresa | País | Prefijo | Teléfono | Email | Password
+                # GUARDADO
                 conn.worksheet("Usuarios").append_row([
-                    n, 
-                    a, 
-                    cargo, 
-                    e, 
-                    pais_sel,   # Dato de paises.py
-                    pref_auto,  # Dato de paises.py
-                    tl_num,     # Teléfono limpio
-                    m, 
-                    encriptar_password(p1)
+                    n, a, cargo, e, pais_sel, pref_auto, tl_num, m, encriptar_password(p1)
                 ])
-                
-                # ENVÍO DE CORREO
                 correo.enviar_correo_bienvenida(m, n, m, p1)
-                
                 st.success("✅ REGISTRO EXITOSO")
                 time.sleep(2)
                 st.session_state.mostrar_registro = False
                 st.rerun()
-                
             except Exception as ex:
                 st.error(f"Error técnico: {ex}")
 
@@ -169,7 +153,6 @@ def interfaz_registro_legal(conn, t):
         st.session_state.mostrar_registro = False
         st.rerun()
 
-# --- Login (Sin cambios) ---
 def gestionar_acceso(conn, t):
     estilos.mostrar_logo()
     st.markdown(f'<p class="swarco-title">{t.get("login_tit", "Acceso")}</p>', unsafe_allow_html=True)
