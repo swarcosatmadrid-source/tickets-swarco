@@ -1,6 +1,6 @@
 # =============================================================================
 # ARCHIVO: usuarios.py
-# VERSIÓN: 8.9.0 (Bloqueo Duplicados Estricto + Aviso Autofill + Error Persistente)
+# VERSIÓN: 9.0.0 (Validación Total: Pinta rojos vacíos y duplicados a la vez)
 # =============================================================================
 import streamlit as st
 import pandas as pd
@@ -30,21 +30,17 @@ def validar_fuerza_clave(password):
 def usuario_existe(conn, email_input):
     if not email_input: return False
     try:
-        # Descarga forzada de datos para comparar con la realidad
         records = conn.worksheet("Usuarios").get_all_records()
         df = pd.DataFrame(records)
-        
         if df.empty: return False
         
-        # Normalización total: todo a minúsculas y sin espacios para comparar
-        emails_existentes = df['email'].astype(str).str.lower().str.strip().values
-        email_nuevo = email_input.lower().strip()
+        # Comparamos todo en minúsculas y sin espacios
+        lista_emails = df['email'].astype(str).str.lower().str.strip().values
+        email_buscado = email_input.lower().strip()
         
-        if email_nuevo in emails_existentes:
+        if email_buscado in lista_emails:
             return True
-    except Exception as e:
-        print(f"Error verificando duplicados: {e}")
-        return False
+    except: return False
     return False
 
 # --- Interfaz de Registro ---
@@ -52,10 +48,8 @@ def interfaz_registro_legal(conn, t):
     estilos.mostrar_logo()
     st.markdown(f'<p class="swarco-title">{t.get("reg_tit", "ALTA DE USUARIO")}</p>', unsafe_allow_html=True)
     
-    # --- NOTA DE AUTOFILL (SOLICITADA) ---
-    st.info("ℹ️ NOTA IMPORTANTE: Si utiliza el autocompletado del navegador, asegúrese de presionar **ENTER** en cada casilla para que el sistema reconozca los datos.", icon="⌨️")
+    st.info("ℹ️ NOTA: Si usa autocompletar, presione **ENTER** en cada casilla para asegurar el guardado.", icon="⌨️")
 
-    # Inicializar estado de errores
     if 'campos_error' not in st.session_state: st.session_state.campos_error = []
 
     def limpiar_si_hay_dato(dato, key_error):
@@ -78,7 +72,6 @@ def interfaz_registro_legal(conn, t):
     # 2. ZONA UBICACIÓN
     with st.container(border=True):
         st.markdown(f"#### 🌍 {t.get('p2_tit', 'Datos Profesionales')}")
-        
         c_cargo, c_empresa = st.columns(2)
         
         cargo = c_cargo.text_input("Cargo / Puesto *")
@@ -92,138 +85,112 @@ def interfaz_registro_legal(conn, t):
         # Email
         m = st.text_input("Email Corporativo *").lower().strip()
         
-        # Validación visual (sin bloqueo, solo aviso)
+        # Validación Visual Inmediata
         if m:
             if "@" not in m:
                 pass
             elif usuario_existe(conn, m):
-                st.error("⛔ DUPLICADO: Este correo ya existe.")
+                # Si existe, mostramos error visual pero NO bloqueamos aún (esperamos al botón)
+                st.error("⛔ DUPLICADO: Correo ya registrado.")
             else:
                 limpiar_si_hay_dato(m, "m")
+                limpiar_si_hay_dato(m, "duplicado") # Limpiamos error de duplicado si lo cambiaron
                 st.success("✅ Disponible")
 
+        # Errores del Botón
         if "m" in st.session_state.campos_error: st.error("Email requerido")
+        if "duplicado" in st.session_state.campos_error: st.error("⛔ ERROR: Correo ya registrado. Cambie el email.")
 
-        # Teléfono
-        st.caption("Teléfono Móvil")
         col_pais, col_pref, col_tel = st.columns([3, 1.2, 3])
-        
         with col_pais:
-            lista_paises = paises.obtener_lista_nombres()
-            idx = lista_paises.index("España") if "España" in lista_paises else 0
-            pais_sel = st.selectbox("País *", lista_paises, index=idx)
-        
+            lista = paises.obtener_lista_nombres()
+            idx = lista.index("España") if "España" in lista else 0
+            pais_sel = st.selectbox("País *", lista, index=idx)
         with col_pref:
-            pref_auto = paises.obtener_prefijo(pais_sel)
-            st.text_input("Prefijo", value=pref_auto, disabled=True)
-        
+            pref = paises.obtener_prefijo(pais_sel)
+            st.text_input("Prefijo", value=pref, disabled=True)
         with col_tel:
-            tl_num = st.text_input("Nº Móvil *", placeholder="Ej: 600123456")
-            if tl_num and tl_num.isdigit():
-                limpiar_si_hay_dato(tl_num, "tl")
-            
-            if tl_num and not tl_num.isdigit():
-                st.error("⚠️ Solo números")
+            tl_num = st.text_input("Nº Móvil *", placeholder="Solo números")
+            if tl_num and tl_num.isdigit(): limpiar_si_hay_dato(tl_num, "tl")
+            if tl_num and not tl_num.isdigit(): st.error("⚠️ Solo números")
             if "tl" in st.session_state.campos_error: st.error("Mínimo 6 dígitos")
 
     # 3. ZONA SEGURIDAD
     with st.container(border=True):
         st.markdown(f"#### 🔒 {t.get('p3_tit', 'Seguridad')}")
-        st.caption("Requisitos: Mínimo 8 caracteres + Mayúscula + Número.")
-        
         p1 = st.text_input("Contraseña *", type='password')
-        
         if p1:
             prog, etiq, col = validar_fuerza_clave(p1)
-            st.markdown(f"""
-                <div style="background-color:#ddd;height:5px;border-radius:2px;">
-                    <div style="width:{prog}%;background-color:{col};height:100%;"></div>
-                </div>
-                <small style="color:{col}; font-weight:bold;">Nivel: {etiq}</small>
-            """, unsafe_allow_html=True)
-            
-            if prog >= 60:
-                limpiar_si_hay_dato(p1, "p1")
-            else:
-                st.warning("⚠️ Contraseña insegura. Debe ser al menos Nivel Medio 🟡")
+            st.markdown(f"""<div style="background-color:#ddd;height:5px;"><div style="width:{prog}%;background-color:{col};height:100%;"></div></div><small style="color:{col}">{etiq}</small>""", unsafe_allow_html=True)
+            if prog >= 60: limpiar_si_hay_dato(p1, "p1")
+            else: st.warning("⚠️ Nivel Medio Requerido 🟡")
 
         p2 = st.text_input("Repetir Contraseña *", type='password')
         if p2 and p1 == p2: limpiar_si_hay_dato(p2, "no_match")
         
-        if "p1" in st.session_state.campos_error: st.error("Contraseña débil o vacía")
-        if "no_match" in st.session_state.campos_error: st.error("Las contraseñas no coinciden")
+        if "p1" in st.session_state.campos_error: st.error("Contraseña débil")
+        if "no_match" in st.session_state.campos_error: st.error("No coinciden")
 
-    # 4. ZONA LEGAL
+    # 4. LEGAL
     with st.container(border=True):
         st.markdown(f"#### ⚖️ {t.get('p4_tit', 'Términos Legales')}")
-        link_gdpr = "https://www.swarco.com/privacy-policy"
-        st.markdown(f"Debe leer y aceptar la [Política de Privacidad]({link_gdpr}).", unsafe_allow_html=True)
-        chk = st.checkbox("He leído, comprendo y acepto los términos.")
-        
+        link = "https://www.swarco.com/privacy-policy"
+        st.markdown(f"Acepto la [Política de Privacidad]({link}).", unsafe_allow_html=True)
+        chk = st.checkbox("He leído y acepto.")
         if chk: limpiar_si_hay_dato(True, "chk")
-        if "chk" in st.session_state.campos_error: st.error("Debe aceptar para continuar")
+        if "chk" in st.session_state.campos_error: st.error("Debe aceptar")
 
     st.divider()
 
-    # --- BOTÓN DE REGISTRO ---
+    # --- BOTÓN REGISTRO (LÓGICA CORREGIDA) ---
     if st.button("REGISTRAR USUARIO", type="primary", use_container_width=True):
+        errores = []
         
-        # 1. BLOQUEO DE DUPLICADOS (PRIORIDAD MÁXIMA)
-        # Se ejecuta ANTES de validar campos vacíos para evitar errores
+        # 1. Chequeo de Vacíos
+        if not n: errores.append("n")
+        if not a: errores.append("a")
+        if not cargo: errores.append("cargo")
+        if not e: errores.append("e")
+        if not m or "@" not in m: errores.append("m")
+        if not chk: errores.append("chk")
+        if not tl_num or not tl_num.isdigit() or len(tl_num) < 6: errores.append("tl")
+        if not p1 or not p2: errores.append("p1")
+        elif p1 != p2: errores.append("no_match")
+        else:
+            f, _, _ = validar_fuerza_clave(p1)
+            if f < 60: errores.append("p1")
+
+        # 2. Chequeo de Duplicado (Ahora se suma a la lista, NO FRENA EL CÓDIGO)
         if m and usuario_existe(conn, m):
-            st.error(f"🛑 ALTO: El usuario '{m}' YA EXISTE en el sistema.", icon="🚫")
-            st.warning("No se ha creado ningún registro nuevo. Por favor use otro correo.")
-            st.stop() # DETIENE LA EJECUCIÓN AQUÍ. IMPOSIBLE QUE GUARDE.
+            errores.append("duplicado")
 
-        # 2. Recolección de errores
-        errores_detectados = []
+        # 3. Decisión Final
+        if errores:
+            st.session_state.campos_error = errores
+            # Mensaje abajo
+            if "duplicado" in errores:
+                st.error("⛔ ERROR: El usuario ya existe. Revise el campo de email.", icon="🚫")
+            else:
+                st.error("⚠️ FALTAN DATOS: Revise los campos marcados en rojo.", icon="🚨")
+            
+            # RECARGA OBLIGATORIA para pintar los cuadros rojos
+            st.rerun()
         
-        if not n: errores_detectados.append("n")
-        if not a: errores_detectados.append("a")
-        if not cargo: errores_detectados.append("cargo")
-        if not e: errores_detectados.append("e")
-        if not m or "@" not in m: errores_detectados.append("m")
-        if not chk: errores_detectados.append("chk")
-        
-        if not tl_num or not tl_num.isdigit() or len(tl_num) < 6:
-            errores_detectados.append("tl")
-
-        if not p1 or not p2: 
-            errores_detectados.append("p1")
-        elif p1 != p2:
-            errores_detectados.append("no_match")
         else:
-            fuerza, _, _ = validar_fuerza_clave(p1)
-            if fuerza < 60: errores_detectados.append("p1")
-
-        # 3. DECISIÓN
-        if errores_detectados:
-            st.session_state.campos_error = errores_detectados
-            # AVISO QUE NO SE BORRA
-            st.error("⚠️ FALTAN DATOS O HAY ERRORES: Revise los campos marcados y rellene lo que falta.", icon="🚨")
-            # NO HACEMOS RERUN PARA QUE EL MENSAJE SE QUEDE AHÍ Y EL USUARIO LO LEA
-        else:
-            # TODO OK -> GUARDAR
+            # Éxito
             try:
                 conn.worksheet("Usuarios").append_row([
-                    n, a, cargo, e, pais_sel, pref_auto, tl_num, m, encriptar_password(p1)
+                    n, a, cargo, e, pais_sel, pref, tl_num, m, encriptar_password(p1)
                 ])
-                
-                # Intentar correo
                 try:
-                    envio_ok = correo.enviar_correo_bienvenida(m, n, m, p1)
-                    if envio_ok:
-                        st.success("✅ USUARIO CREADO Y CORREO ENVIADO")
-                    else:
-                        st.warning("⚠️ Usuario guardado, pero falló el correo (revise configuración).")
-                except:
-                    st.warning("⚠️ Usuario guardado, pero el sistema de correo falló totalmente.")
-
-                # Limpieza final
-                st.session_state.campos_error = []
+                    ok = correo.enviar_correo_bienvenida(m, n, m, p1)
+                    if ok: st.success("✅ USUARIO CREADO Y CORREO ENVIADO")
+                    else: st.warning("⚠️ Creado, pero falló el correo.")
+                except: st.warning("⚠️ Creado, sin correo.")
                 
+                st.session_state.campos_error = []
             except Exception as ex:
-                st.error(f"Error Técnico guardando en Excel: {ex}")
+                st.error(f"Error Técnico: {ex}")
 
     if st.button("Cancelar"):
         st.session_state.mostrar_registro = False
@@ -248,11 +215,8 @@ def gestionar_acceso(conn, t):
                         st.rerun()
                     else: st.error("Contraseña incorrecta")
                 else: st.error("Usuario no encontrado")
-            except: 
-                st.error("Error conexión")
-    
+            except: st.error("Error conexión")
     st.write("")
     if st.button("Crear cuenta nueva"):
         st.session_state.mostrar_registro = True
         st.rerun()
-    
