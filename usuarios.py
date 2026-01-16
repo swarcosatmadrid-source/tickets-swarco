@@ -1,11 +1,11 @@
 # =============================================================================
 # ARCHIVO: usuarios.py
-# VERSIÓN: 9.0.0 (Validación Total: Pinta rojos vacíos y duplicados a la vez)
+# VERSIÓN: 9.1.0 (Validación Email con Regex + Bloqueo Estricto)
 # =============================================================================
 import streamlit as st
 import pandas as pd
 import hashlib
-import re
+import re # Importante para la validación del correo
 import time
 import estilos
 import correo
@@ -14,6 +14,16 @@ import paises
 # --- Lógica Auxiliar ---
 def encriptar_password(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
+
+def es_email_valido(email):
+    """
+    Valida que el correo tenga estructura real: texto@dominio.extensión
+    Ejemplo válido: nombre@swarco.com
+    Ejemplo inválido: nombre@swarco
+    """
+    # Patrón: Texto + @ + Texto + . + 2 o más letras
+    patron = r'^[\w\.-]+@[\w\.-]+\.\w{2,}$'
+    return re.match(patron, email) is not None
 
 def validar_fuerza_clave(password):
     score = 0
@@ -34,7 +44,6 @@ def usuario_existe(conn, email_input):
         df = pd.DataFrame(records)
         if df.empty: return False
         
-        # Comparamos todo en minúsculas y sin espacios
         lista_emails = df['email'].astype(str).str.lower().str.strip().values
         email_buscado = email_input.lower().strip()
         
@@ -48,7 +57,7 @@ def interfaz_registro_legal(conn, t):
     estilos.mostrar_logo()
     st.markdown(f'<p class="swarco-title">{t.get("reg_tit", "ALTA DE USUARIO")}</p>', unsafe_allow_html=True)
     
-    st.info("ℹ️ NOTA: Si usa autocompletar, presione **ENTER** en cada casilla para asegurar el guardado.", icon="⌨️")
+    st.info("ℹ️ NOTA: Presione **ENTER** en cada casilla para confirmar los datos.", icon="⌨️")
 
     if 'campos_error' not in st.session_state: st.session_state.campos_error = []
 
@@ -87,19 +96,19 @@ def interfaz_registro_legal(conn, t):
         
         # Validación Visual Inmediata
         if m:
-            if "@" not in m:
-                pass
+            # 1. Chequeo de Formato (Regex)
+            if not es_email_valido(m):
+                st.warning("⚠️ Formato incorrecto. Ejemplo válido: usuario@dominio.com")
+            # 2. Chequeo de Duplicado
             elif usuario_existe(conn, m):
-                # Si existe, mostramos error visual pero NO bloqueamos aún (esperamos al botón)
                 st.error("⛔ DUPLICADO: Correo ya registrado.")
             else:
                 limpiar_si_hay_dato(m, "m")
-                limpiar_si_hay_dato(m, "duplicado") # Limpiamos error de duplicado si lo cambiaron
+                limpiar_si_hay_dato(m, "duplicado")
                 st.success("✅ Disponible")
 
-        # Errores del Botón
-        if "m" in st.session_state.campos_error: st.error("Email requerido")
-        if "duplicado" in st.session_state.campos_error: st.error("⛔ ERROR: Correo ya registrado. Cambie el email.")
+        if "m" in st.session_state.campos_error: st.error("Email inválido o vacío")
+        if "duplicado" in st.session_state.campos_error: st.error("Cambie el email para continuar.")
 
         col_pais, col_pref, col_tel = st.columns([3, 1.2, 3])
         with col_pais:
@@ -142,7 +151,7 @@ def interfaz_registro_legal(conn, t):
 
     st.divider()
 
-    # --- BOTÓN REGISTRO (LÓGICA CORREGIDA) ---
+    # --- BOTÓN REGISTRO ---
     if st.button("REGISTRAR USUARIO", type="primary", use_container_width=True):
         errores = []
         
@@ -151,7 +160,12 @@ def interfaz_registro_legal(conn, t):
         if not a: errores.append("a")
         if not cargo: errores.append("cargo")
         if not e: errores.append("e")
-        if not m or "@" not in m: errores.append("m")
+        
+        # 2. VALIDACIÓN ESTRICTA DE EMAIL
+        # Si está vacío O NO cumple el patrón regex -> Error 'm'
+        if not m or not es_email_valido(m): 
+            errores.append("m")
+        
         if not chk: errores.append("chk")
         if not tl_num or not tl_num.isdigit() or len(tl_num) < 6: errores.append("tl")
         if not p1 or not p2: errores.append("p1")
@@ -160,24 +174,25 @@ def interfaz_registro_legal(conn, t):
             f, _, _ = validar_fuerza_clave(p1)
             if f < 60: errores.append("p1")
 
-        # 2. Chequeo de Duplicado (Ahora se suma a la lista, NO FRENA EL CÓDIGO)
-        if m and usuario_existe(conn, m):
+        # 3. Chequeo de Duplicado (Solo si el email es válido)
+        if m and es_email_valido(m) and usuario_existe(conn, m):
             errores.append("duplicado")
 
-        # 3. Decisión Final
+        # 4. Decisión Final
         if errores:
             st.session_state.campos_error = errores
-            # Mensaje abajo
+            
+            # Mensajes Específicos abajo del botón
             if "duplicado" in errores:
-                st.error("⛔ ERROR: El usuario ya existe. Revise el campo de email.", icon="🚫")
+                st.error("⛔ ERROR: El usuario ya existe.", icon="🚫")
+            elif "m" in errores and m: # Si escribió algo pero está mal
+                st.error("⚠️ ERROR: El formato del correo es inválido (falta @ o dominio).", icon="📧")
             else:
                 st.error("⚠️ FALTAN DATOS: Revise los campos marcados en rojo.", icon="🚨")
             
-            # RECARGA OBLIGATORIA para pintar los cuadros rojos
             st.rerun()
         
         else:
-            # Éxito
             try:
                 conn.worksheet("Usuarios").append_row([
                     n, a, cargo, e, pais_sel, pref, tl_num, m, encriptar_password(p1)
@@ -189,6 +204,9 @@ def interfaz_registro_legal(conn, t):
                 except: st.warning("⚠️ Creado, sin correo.")
                 
                 st.session_state.campos_error = []
+                time.sleep(2)
+                st.session_state.mostrar_registro = False
+                st.rerun()
             except Exception as ex:
                 st.error(f"Error Técnico: {ex}")
 
