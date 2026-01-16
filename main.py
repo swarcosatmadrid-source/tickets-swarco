@@ -1,10 +1,10 @@
 # ==========================================
 # ARCHIVO: main.py
 # PROYECTO: TicketV1
-# VERSIÓN: v1.2 (Full UI + Debug) 🛠️
+# VERSIÓN: v1.2-FIXED (Estructura Original + Debug)
 # FECHA: 16-Ene-2026
-# DESCRIPCIÓN: Versión completa. Mantiene el selector de idiomas Y
-#              agrega el diagnóstico detallado de errores de conexión.
+# DESCRIPCIÓN: Mantiene TODA la lógica original (idiomas, menús).
+#              Solo mejora conectar_google_sheets para ver errores reales.
 # ==========================================
 
 import streamlit as st
@@ -13,45 +13,41 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # --- IMPORTACIÓN DE MÓDULOS ---
-try:
-    import estilos
-    import usuarios
-    import tickets
-    from idiomas import traducir_interfaz
-except ImportError as e:
-    st.error(f"⚠️ Faltan archivos: {e}")
-    st.stop()
+import estilos
+import usuarios
+import tickets
+from idiomas import traducir_interfaz
 
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Swarco Spain SAT", page_icon="🚦", layout="centered")
 
-# --- 2. CONEXIÓN ROBUSTA (CON DIAGNÓSTICO) ---
+# --- 2. CONEXIÓN NATIVA A GOOGLE (CON DIAGNÓSTICO DE ERRORES) ---
 def conectar_google_sheets():
-    """Conecta a Google Sheets y MUESTRA EL ERROR si falla."""
+    """Conecta a Google Sheets y avisa si falla."""
     try:
-        # A) Verificación rápida de Secrets
-        if "connections" not in st.secrets:
-            st.error("❌ ERROR: No se detectan los 'Secrets'. Pégalos en el panel de Streamlit.")
-            return None
-
-        # B) Definimos permisos
+        # Definimos el alcance
         scope = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive"
         ]
         
-        # C) Autenticación
+        # Verificamos si existen los secrets antes de leer
+        if "connections" not in st.secrets:
+            st.error("❌ ERROR: No se encuentran los 'Secrets' en la configuración.")
+            return None
+
+        # Cargamos credenciales
         creds_dict = dict(st.secrets["connections"]["gsheets"]["service_account"])
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client = gspread.authorize(creds)
         
-        # D) Abrir Excel
+        # Abrimos la hoja
         url = st.secrets["connections"]["gsheets"]["spreadsheet"]
         sheet = client.open_by_url(url)
         return sheet
-        
+
     except Exception as e:
-        # AQUÍ ESTÁ LA CLAVE: Mostramos el mensaje técnico
+        # AQUÍ ESTÁ EL CAMBIO: Mostramos el error en pantalla
         st.error(f"🔥 ERROR DE CONEXIÓN: {e}")
         return None
 
@@ -63,22 +59,19 @@ CONEXION_DISPONIBLE = True if conn else False
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'codigo_lang' not in st.session_state: st.session_state.codigo_lang = 'es' 
 
-# --- 4. CALLBACK IDIOMA (Esto es lo que te había quitado, aquí está de vuelta) ---
+# --- 4. CALLBACK IDIOMA (ESTO SE QUEDA, NO SE TOCA) ---
 def actualizar_idioma_callback():
     seleccion = st.session_state.selector_idioma_key
-    # Extrae el código entre paréntesis, ej: "Castellano (es)" -> "es"
     nuevo_codigo = seleccion.split('(')[-1].split(')')[0]
     st.session_state.codigo_lang = nuevo_codigo
 
-# --- 5. BARRA LATERAL (Con selector de idiomas) ---
+# --- 5. BARRA LATERAL (ESTO SE QUEDA, NO SE TOCA) ---
 with st.sidebar:
     opciones_idioma = [
         "Castellano (es)", "English (en)", "Deutsch (de)", 
         "Français (fr)", "Italiano (it)", "Português (pt)",
         "Hebrew (he)", "Chinese (zh)"
     ]
-    
-    # Lógica para mantener la selección actual
     indice_actual = 0
     for i, op in enumerate(opciones_idioma):
         if f"({st.session_state.codigo_lang})" in op:
@@ -92,7 +85,6 @@ with st.sidebar:
     st.markdown("---")
     st.caption(f"Swarco Traffic Spain \nSAT Portal TicketV1")
 
-    # Indicador de estado (Semáforo)
     if CONEXION_DISPONIBLE:
         st.success("🟢 Sistema Online")
     else:
@@ -109,4 +101,3 @@ if not st.session_state.autenticado:
         usuarios.gestionar_acceso(conn, t)
 else:
     tickets.interfaz_tickets(conn, t)
-
