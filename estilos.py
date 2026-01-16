@@ -1,38 +1,62 @@
-# ==========================================
-# ARCHIVO: estilos.py | PROYECTO: TicketV1
-# DESCRIPCIÓN: CSS Corporativo Swarco.
-# ==========================================
+# =============================================================================
+# ARCHIVO: estilos.py
+# PROYECTO: Sistema de Gestión SAT - SWARCO Traffic Spain
+# VERSIÓN: 1.1.0 (Inyección de CSS Dinámico)
+# FECHA ÚLTIMA MODIF: 16-Ene-2026
+# DESCRIPCIÓN: Gestiona la identidad visual corporativa y la manipulación
+#              de elementos DOM para validaciones visuales.
+# =============================================================================
+
 import streamlit as st
 
 def cargar_estilos():
+    """Carga el CSS base de Swarco (Colores corporativos y fuentes)."""
     st.markdown("""
         <style>
-        .swarco-title { color: #00549F; font-size: 26px; font-weight: bold; text-align: center; }
-        .swarco-subtitle { color: #00549F; font-size: 18px; text-align: center; margin-top: -10px; }
-        
-        /* Botones Naranjas TicketV1 */
-        div.stButton > button, div.stForm submit_button > button {
-            background-color: #F29400 !important;
-            color: white !important;
-            border-radius: 5px !important;
-            font-weight: bold !important;
-            width: 100% !important;
-            padding: 0.7rem !important;
-            border: none !important;
-            text-transform: uppercase;
+        .swarco-title {
+            color: #FF5D00;
+            font-size: 32px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 20px;
         }
-        
-        /* Formulario Cuadro Blanco */
-        div[data-testid="stForm"] {
-            border: 1px solid #eee !important;
-            border-radius: 10px !important;
-            padding: 20px !important;
+        /* Botón Naranja Corporativo */
+        .stButton>button {
+            background-color: #FF5D00;
+            color: white;
+            border-radius: 5px;
+            width: 100%;
         }
         </style>
     """, unsafe_allow_html=True)
 
 def mostrar_logo():
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        try: st.image("logo.png", use_container_width=True)
-        except: st.write("### SWARCO")
+    """Muestra el logo de Swarco en el encabezado."""
+    st.image("logo_swarco.png", width=200)
+
+def aplicar_bordes_rojos():
+    """
+    Inyecta CSS específico para resaltar en rojo los campos 
+    que fallan la validación en el formulario de registro.
+    """
+    st.markdown("""
+        <style>
+        /* Selecciona los inputs de Streamlit que el usuario dejó vacíos */
+        div[data-testid="stForm"] div[data-baseweb="input"] {
+            transition: border 0.3s ease;
+        }
+        
+        /* Aplicamos el borde rojo sangre cuando la lógica lo requiera */
+        .field-error input {
+            border: 2px solid #FF0000 !important;
+            background-color: #FFF5F5 !important;
+        }
+        
+        .error-text {
+            color: #FF0000;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
