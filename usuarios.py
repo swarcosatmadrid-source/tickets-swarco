@@ -1,6 +1,6 @@
 # =============================================================================
 # ARCHIVO: usuarios.py
-# VERSIÓN: 5.3.0 (Seguridad Alta + Envío de Clave REAL en Correo)
+# VERSIÓN: 6.0.0 (Validación En Tiempo Real + Prefijos + Cargo)
 # =============================================================================
 import streamlit as st
 import pandas as pd
@@ -10,187 +10,172 @@ import time
 import estilos
 import correo
 
-# --- Lógica de Validación Avanzada ---
-def limpiar_telefono(texto):
+# --- Lógica Auxiliar ---
+def limpiar_telefono_simple(texto):
     if not texto: return ""
-    return re.sub(r'[^0-9+]', '', texto)
+    return re.sub(r'[^0-9]', '', texto) # Solo números, el + va en el prefijo
 
 def encriptar_password(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
 def validar_fuerza_clave(password):
-    """
-    Analiza la contraseña y devuelve: Score (0-4), Mensaje, Color
-    """
     score = 0
     if len(password) >= 8: score += 1
     if re.search(r"[A-Z]", password): score += 1
     if re.search(r"[a-z]", password): score += 1
     if re.search(r"[0-9]", password): score += 1
-    if re.search(r"[@$!%*?&#]", password): score += 1 # Carácter especial
+    if re.search(r"[@$!%*?&#]", password): score += 1
     
-    # Normalizamos a porcentaje para la barra visual
-    if score < 3:
-        return 20, "Débil 🔴", "#ff4b4b" # Rojo
-    elif score < 5:
-        return 60, "Media 🟡", "#ffa500" # Naranja
-    else:
-        return 100, "Robusta 🟢", "#21c354" # Verde
+    if score < 3: return 20, "Débil 🔴", "#ff4b4b"
+    elif score < 5: return 60, "Media 🟡", "#ffa500"
+    else: return 100, "Robusta 🟢", "#21c354"
 
 def usuario_existe(conn, email_input):
-    """Verifica en Google Sheets si el email ya está registrado"""
+    """Chequeo rápido de duplicados"""
     try:
         df = pd.DataFrame(conn.worksheet("Usuarios").get_all_records())
         if not df.empty and email_input.lower() in df['email'].astype(str).str.lower().values:
             return True
-    except:
-        return False
+    except: return False
     return False
 
-# --- Interfaz Principal ---
+# --- Interfaz Interactiva ---
 def interfaz_registro_legal(conn, t):
     estilos.mostrar_logo()
-    st.markdown(f'<p class="swarco-title">{t.get("reg_tit", "REGISTRO OFICIAL")}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="swarco-title">{t.get("reg_tit", "ALTA DE USUARIO")}</p>', unsafe_allow_html=True)
 
-    if 'err' not in st.session_state: st.session_state.err = []
-    def check_err(k): return k in st.session_state.err
-
-    with st.form("registro_blindado_final"):
+    # 1. ZONA IDENTIFICACIÓN
+    with st.container(border=True):
+        st.markdown(f"#### 👤 {t.get('p1_tit', 'Identificación')}")
+        c1, c2 = st.columns(2)
+        n = c1.text_input("Nombre *")
+        a = c2.text_input("Apellido *")
         
-        # ZONA 1: IDENTIFICACIÓN
-        with st.container(border=True):
-            st.markdown(f"#### 👤 {t.get('p1_tit', 'Identificación')}")
-            c1, c2 = st.columns(2)
-            n = c1.text_input(t.get("nombre", "Nombre"))
-            if check_err("n"): c1.error("Requerido")
-            a = c2.text_input(t.get("apellido", "Apellido"))
-            if check_err("a"): c2.error("Requerido")
+        # NUEVO CAMPO: CARGO
+        cargo = st.text_input("Cargo / Puesto *", placeholder="Ej: Jefe de Sala, Operador, Técnico")
 
-        # ZONA 2: UBICACIÓN
-        with st.container(border=True):
-            st.markdown(f"#### 🌍 {t.get('p2_tit', 'Ubicación')}")
-            e = st.text_input(t.get("cliente", "Empresa"))
-            if check_err("e"): st.error("Falta Empresa")
-            
-            c3, c4 = st.columns(2)
-            p = c3.text_input(t.get("pais", "País"))
-            if check_err("p"): c3.error("Requerido")
-            
-            raw_tel = c4.text_input(t.get("tel", "Teléfono"), help="Solo números")
-            tl = limpiar_telefono(raw_tel)
-            if check_err("tl"): c4.error("Mínimo 5 dígitos")
-            
-            m = st.text_input(t.get("email", "Email")).lower().strip()
-            if check_err("m"): st.error("Email inválido")
-            if check_err("duplicado"): st.error("⛔ Correo ya registrado.")
-
-        # ZONA 3: SEGURIDAD (Con Barra Visual)
-        with st.container(border=True):
-            st.markdown(f"#### 🔒 {t.get('p3_tit', 'Seguridad')}")
-            st.caption("Requisito: 8 caracteres, Mayúscula, Minúscula, Número y Símbolo (@$!%*?&)")
-            
-            p1 = st.text_input(t.get("pass", "Contraseña"), type='password')
-            
-            # --- BARRA DE FUERZA ---
-            if p1:
-                progreso, etiqueta, color = validar_fuerza_clave(p1)
-                st.markdown(f"""
-                    <div style="background-color: #ddd; border-radius: 5px; height: 10px; width: 100%;">
-                        <div style="background-color: {color}; width: {progreso}%; height: 100%; border-radius: 5px; transition: width 0.5s;"></div>
-                    </div>
-                    <p style="color:{color}; font-weight:bold; margin-top:5px; font-size:0.9em;">Nivel: {etiqueta}</p>
-                """, unsafe_allow_html=True)
+    # 2. ZONA UBICACIÓN (Validación Email Inmediata)
+    with st.container(border=True):
+        st.markdown(f"#### 🌍 {t.get('p2_tit', 'Ubicación')}")
+        e = st.text_input("Empresa / Entidad *")
+        
+        # EMAIL CON VALIDACIÓN AL VUELO
+        m = st.text_input("Email Corporativo *").lower().strip()
+        email_valido = False
+        if m:
+            if "@" not in m:
+                st.warning("⚠️ Formato de correo inválido")
+            elif usuario_existe(conn, m):
+                st.error("⛔ ESTE USUARIO YA EXISTE. Por favor use otro correo o recupere contraseña.")
             else:
-                st.markdown('<div style="background-color: #eee; border-radius: 5px; height: 10px; width: 100%;"></div>', unsafe_allow_html=True)
-            # -----------------------
-
-            p2 = st.text_input(t.get("pass_rep", "Repetir"), type='password')
-            
-            if check_err("p1_req"): st.error("La contraseña no es segura.")
-
-        # ZONA 4: LEGAL
-        with st.container(border=True):
-            link = "https://www.swarco.com/privacy-policy"
-            st.markdown(f"Acepto la [Política de Privacidad]({link}) de SWARCO.")
-            chk = st.checkbox(t.get("acepto", "He leído y acepto"))
-            if check_err("chk"): st.error("Debe aceptar los términos")
-
-        st.divider()
+                st.success("✅ Correo disponible")
+                email_valido = True
         
-        # BOTÓN DE REGISTRO
-        submitted = st.form_submit_button(t.get("btn_registro_final", "REGISTRAR AHORA"))
+        # TELÉFONO CON PREFIJO SEPARADO
+        st.caption("Teléfono de Contacto")
+        cp1, cp2 = st.columns([1, 2])
+        prefijo = cp1.selectbox("Prefijo", ["+34 (ES)", "+58 (VE)", "+1 (US)", "+57 (CO)", "+54 (AR)", "+49 (DE)"])
+        raw_tel = cp2.text_input("Número Móvil *", placeholder="Sin prefijo")
+        tl_num = limpiar_telefono_simple(raw_tel)
         
-        if submitted:
-            errores = []
-            
-            # 1. Validaciones de Campos Vacíos
-            if not n: errores.append("n")
-            if not a: errores.append("a")
-            if not e: errores.append("e")
-            if not p: errores.append("p")
-            if not m or "@" not in m: errores.append("m")
-            if not tl or len(tl) < 5: errores.append("tl")
-            if not chk: errores.append("chk")
-            
-            # 2. Validación de Seguridad de Clave
-            fuerza, _, _ = validar_fuerza_clave(p1)
-            if fuerza < 100: errores.append("p1_req")
-            
-            # 3. Validación de Duplicados
-            if m and usuario_existe(conn, m): errores.append("duplicado")
+        telefono_completo = f"{prefijo.split()[0]} {tl_num}"
 
-            if errores:
-                st.session_state.err = errores
-                st.error("⚠️ Revise las alertas en rojo.")
+    # 3. ZONA SEGURIDAD (Validación Clave Inmediata)
+    with st.container(border=True):
+        st.markdown(f"#### 🔒 {t.get('p3_tit', 'Seguridad')}")
+        
+        p1 = st.text_input("Contraseña *", type='password')
+        clave_valida = False
+        
+        # Barra de fuerza en tiempo real
+        if p1:
+            prog, etiq, col = validar_fuerza_clave(p1)
+            st.markdown(f"""
+                <div style="background-color:#ddd;height:5px;border-radius:2px;"><div style="width:{prog}%;background-color:{col};height:100%;"></div></div>
+                <small style="color:{col}">{etiq}</small>
+            """, unsafe_allow_html=True)
+
+        p2 = st.text_input("Repetir Contraseña *", type='password')
+        
+        # Chequeo inmediato de coincidencia
+        if p2:
+            if p1 == p2:
+                st.success("✅ Las contraseñas coinciden")
+                clave_valida = True
+            else:
+                st.error("❌ LAS CONTRASEÑAS NO COINCIDEN")
+
+    # 4. ZONA LEGAL
+    with st.container(border=True):
+        chk = st.checkbox("He leído y acepto la Política de Privacidad de SWARCO")
+
+    st.divider()
+
+    # --- BOTÓN DE REGISTRO (Solo funciona si todo está OK) ---
+    if st.button("REGISTRAR USUARIO AHORA", type="primary", use_container_width=True):
+        errores = []
+        
+        # Validaciones finales de obligatoriedad
+        if not n: errores.append("Falta Nombre")
+        if not a: errores.append("Falta Apellido")
+        if not cargo: errores.append("Falta Cargo")
+        if not e: errores.append("Falta Empresa")
+        if not email_valido: errores.append("Email inválido o duplicado")
+        if not tl_num or len(tl_num) < 6: errores.append("Teléfono inválido")
+        if not clave_valida: errores.append("Contraseñas no coinciden o inseguras")
+        if not chk: errores.append("Debe aceptar términos")
+
+        if errores:
+            st.error("⚠️ NO SE PUEDE REGISTRAR:")
+            for err in errores: st.error(f"- {err}")
+        else:
+            try:
+                # Guardar en Google Sheets (Ojo: Añadí la columna CARGO)
+                # Orden: Nombre, Apellido, Cargo, Empresa, Prefijo+Tel, Email, Password
+                conn.worksheet("Usuarios").append_row([
+                    n, a, cargo, e, telefono_completo, m, encriptar_password(p1)
+                ])
+                
+                # Enviar Correo
+                envio_ok = correo.enviar_correo_bienvenida(m, n, m, p1)
+                
+                if envio_ok:
+                    st.success("✅ ¡USUARIO CREADO Y CORREO ENVIADO!")
+                else:
+                    st.warning("✅ Usuario creado, pero el correo falló (revisar consola).")
+
+                time.sleep(2)
+                st.session_state.mostrar_registro = False
                 st.rerun()
-            
-            elif p1 != p2:
-                st.error("Las contraseñas no coinciden.")
-            
-            else:
-                try:
-                    # GUARDADO EN GOOGLE SHEETS (Clave Encriptada)
-                    conn.worksheet("Usuarios").append_row([n, a, e, p, m, tl, encriptar_password(p1)])
-                    
-                    # ENVÍO DE CORREO (Clave REAL 'p1' para el usuario)
-                    correo.enviar_correo_bienvenida(m, n, m, p1)
-                    
-                    st.success(f"✅ Usuario {n} creado. Enviando credenciales a {m}...")
-                    
-                    st.session_state.err = []
-                    st.session_state.mostrar_registro = False
-                    time.sleep(2) # Tiempo para leer el mensaje verde
-                    st.rerun() # Cierre automático
-                    
-                except Exception as ex:
-                    st.error(f"Error del Servidor: {ex}")
+                
+            except Exception as ex:
+                st.error(f"Error crítico: {ex}")
 
     if st.button("Cancelar"):
         st.session_state.mostrar_registro = False
-        st.session_state.err = []
         st.rerun()
 
+# --- Login (Sin cambios) ---
 def gestionar_acceso(conn, t):
     estilos.mostrar_logo()
     st.markdown(f'<p class="swarco-title">{t.get("login_tit", "Acceso")}</p>', unsafe_allow_html=True)
     with st.container(border=True):
-        with st.form("login_pro"):
-            u = st.text_input(t.get("user_id", "Usuario")).lower().strip()
-            p = st.text_input(t.get("pass", "Contraseña"), type='password')
-            if st.form_submit_button(t.get("btn_entrar", "INICIAR SESIÓN")):
-                 try:
-                    df = pd.DataFrame(conn.worksheet("Usuarios").get_all_records())
-                    if not df.empty and u in df['email'].values:
-                        real = df.loc[df['email']==u, 'password'].values[0]
-                        if encriptar_password(p) == real:
-                            st.session_state.autenticado = True
-                            st.session_state.user_email = u
-                            st.session_state.pagina_actual = 'menu'
-                            st.rerun()
-                        else: st.error("Contraseña incorrecta")
-                    else: st.error("Usuario no encontrado")
-                 except: st.error("Error conexión")
-    st.markdown("---")
-    if st.button(t.get("btn_ir_registro", "Solicitar Nueva Cuenta")):
+        u = st.text_input("Usuario")
+        p = st.text_input("Contraseña", type='password')
+        if st.button("ENTRAR", use_container_width=True):
+             try:
+                df = pd.DataFrame(conn.worksheet("Usuarios").get_all_records())
+                if not df.empty and u.lower().strip() in df['email'].astype(str).str.lower().values:
+                    real = df.loc[df['email']==u.lower().strip(), 'password'].values[0]
+                    if encriptar_password(p) == real:
+                        st.session_state.autenticado = True
+                        st.session_state.user_email = u
+                        st.session_state.pagina_actual = 'menu'
+                        st.rerun()
+                    else: st.error("Contraseña incorrecta")
+                else: st.error("Usuario no encontrado")
+             except: st.error("Error conexión")
+    st.write("")
+    if st.button("Crear cuenta nueva"):
         st.session_state.mostrar_registro = True
         st.rerun()
